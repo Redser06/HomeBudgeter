@@ -67,6 +67,8 @@
 		0630BEB10C58EA85B992EA2E /* RecurringViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A61F610C66D4AA8721DCC562 /* RecurringViewModelTests.swift */; };
 		71EAB76387B248C09FCFBC4C /* RecurringTransactionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 978E346670442C871717DBFB /* RecurringTransactionServiceTests.swift */; };
 		E557B7719C1CFD781F4A0EA2 /* EncryptionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5787FB93D45F3FE89B9ED40 /* EncryptionServiceTests.swift */; };
+		A1B2C3D4E5F60718192A3B4C /* PensionDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F2E3D4C5B6A79889706B5A4 /* PensionDataTests.swift */; };
+		B2C3D4E5F6071829A3B4C5D6 /* PayslipTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3E4D5C6B7A8998A716C5B4 /* PayslipTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -144,6 +146,8 @@
 		A61F610C66D4AA8721DCC562 /* RecurringViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecurringViewModelTests.swift; sourceTree = "<group>"; };
 		978E346670442C871717DBFB /* RecurringTransactionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecurringTransactionServiceTests.swift; sourceTree = "<group>"; };
 		D5787FB93D45F3FE89B9ED40 /* EncryptionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptionServiceTests.swift; sourceTree = "<group>"; };
+		1F2E3D4C5B6A79889706B5A4 /* PensionDataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PensionDataTests.swift; sourceTree = "<group>"; };
+		2F3E4D5C6B7A8998A716C5B4 /* PayslipTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PayslipTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -336,6 +340,8 @@
 				07951F518BA44B3BA3BC4AA4 /* DocumentTests.swift */,
 				64EC9F39515B20E54151D62D /* RecurringTemplateTests.swift */,
 				C91CE96FE0A732C6AAF1D5F5 /* SavingsGoalTests.swift */,
+				1F2E3D4C5B6A79889706B5A4 /* PensionDataTests.swift */,
+				2F3E4D5C6B7A8998A716C5B4 /* PayslipTests.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -506,6 +512,8 @@
 				0630BEB10C58EA85B992EA2E /* RecurringViewModelTests.swift in Sources */,
 				71EAB76387B248C09FCFBC4C /* RecurringTransactionServiceTests.swift in Sources */,
 				E557B7719C1CFD781F4A0EA2 /* EncryptionServiceTests.swift in Sources */,
+				A1B2C3D4E5F60718192A3B4C /* PensionDataTests.swift in Sources */,
+				B2C3D4E5F6071829A3B4C5D6 /* PayslipTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
