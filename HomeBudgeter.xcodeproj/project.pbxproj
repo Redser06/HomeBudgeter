@@ -69,6 +69,15 @@
 		E557B7719C1CFD781F4A0EA2 /* EncryptionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5787FB93D45F3FE89B9ED40 /* EncryptionServiceTests.swift */; };
 		A1B2C3D4E5F60718192A3B4C /* PensionDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F2E3D4C5B6A79889706B5A4 /* PensionDataTests.swift */; };
 		B2C3D4E5F6071829A3B4C5D6 /* PayslipTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3E4D5C6B7A8998A716C5B4 /* PayslipTests.swift */; };
+		AA1122334455667788990011 /* PayslipViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB1122334455667788990011 /* PayslipViewModel.swift */; };
+		AA2233445566778899001122 /* PayslipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB2233445566778899001122 /* PayslipView.swift */; };
+		AA3344556677889900112233 /* PayslipViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB3344556677889900112233 /* PayslipViewModelTests.swift */; };
+		CC1122334455667788990011 /* PensionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD1122334455667788990011 /* PensionViewModel.swift */; };
+		CC2233445566778899001122 /* PensionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD2233445566778899001122 /* PensionView.swift */; };
+		CC3344556677889900112233 /* PensionViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD3344556677889900112233 /* PensionViewModelTests.swift */; };
+		EE1122334455667788990011 /* ReportsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1122334455667788990011 /* ReportsViewModel.swift */; };
+		EE2233445566778899001122 /* ReportsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2233445566778899001122 /* ReportsView.swift */; };
+		EE3344556677889900112233 /* ReportsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF3344556677889900112233 /* ReportsViewModelTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -148,6 +157,15 @@
 		D5787FB93D45F3FE89B9ED40 /* EncryptionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptionServiceTests.swift; sourceTree = "<group>"; };
 		1F2E3D4C5B6A79889706B5A4 /* PensionDataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PensionDataTests.swift; sourceTree = "<group>"; };
 		2F3E4D5C6B7A8998A716C5B4 /* PayslipTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PayslipTests.swift; sourceTree = "<group>"; };
+		BB1122334455667788990011 /* PayslipViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PayslipViewModel.swift; sourceTree = "<group>"; };
+		BB2233445566778899001122 /* PayslipView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PayslipView.swift; sourceTree = "<group>"; };
+		BB3344556677889900112233 /* PayslipViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PayslipViewModelTests.swift; sourceTree = "<group>"; };
+		DD1122334455667788990011 /* PensionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PensionViewModel.swift; sourceTree = "<group>"; };
+		DD2233445566778899001122 /* PensionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PensionView.swift; sourceTree = "<group>"; };
+		DD3344556677889900112233 /* PensionViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PensionViewModelTests.swift; sourceTree = "<group>"; };
+		FF1122334455667788990011 /* ReportsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportsViewModel.swift; sourceTree = "<group>"; };
+		FF2233445566778899001122 /* ReportsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportsView.swift; sourceTree = "<group>"; };
+		FF3344556677889900112233 /* ReportsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportsViewModelTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -172,7 +190,10 @@
 				DAE58953B77D8CE0AAD74021 /* Budget */,
 				AA03D2E4BE84294260F53068 /* Dashboard */,
 				F4508BEF1BCF85144D9EC8D1 /* Documents */,
+				AA445566778899001122AABB /* Payslips */,
+				AA556677889900112233BBCC /* Pension */,
 				325EFBF6473C3C9CCC4C6EC9 /* Recurring */,
+				AA667788990011223344CCDD /* Reports */,
 				FD7CA7051FAD5A4CD345AB4E /* Savings */,
 				74405DD54ADB57052F04AD65 /* Settings */,
 				73E100AC310DF56163DC852D /* Shared */,
@@ -265,11 +286,14 @@
 			children = (
 				F33A625C1ADB43ED8F078BAB /* BudgetViewModelTests.swift */,
 				96A52E0960AB4175AF674F25 /* DashboardViewModelTests.swift */,
-				648E96026ECA4C0C99057DE3 /* TransactionsViewModelTests.swift */,
 				418C52B66CD0414C9671A154 /* DocumentsViewModelTests.swift */,
+				BB3344556677889900112233 /* PayslipViewModelTests.swift */,
+				DD3344556677889900112233 /* PensionViewModelTests.swift */,
 				A61F610C66D4AA8721DCC562 /* RecurringViewModelTests.swift */,
+				FF3344556677889900112233 /* ReportsViewModelTests.swift */,
 				0DBBAAE607DDCFFC524D76CA /* SavingsGoalViewModelTests.swift */,
 				BB1BF31647CC48B3A443EE11 /* SettingsViewModelTests.swift */,
+				648E96026ECA4C0C99057DE3 /* TransactionsViewModelTests.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -298,9 +322,12 @@
 				D5348BA41C4D9F95237CB602 /* BudgetViewModel.swift */,
 				D8B3B504FAA21E245BAD7523 /* DashboardViewModel.swift */,
 				56FC1A83EF81D74301ABC8A6 /* DocumentsViewModel.swift */,
-				44402660BFD5029C67C54E19 /* SettingsViewModel.swift */,
+				BB1122334455667788990011 /* PayslipViewModel.swift */,
+				DD1122334455667788990011 /* PensionViewModel.swift */,
 				5066917989439FA421E8E407 /* RecurringViewModel.swift */,
+				FF1122334455667788990011 /* ReportsViewModel.swift */,
 				D6C0FD5F2CDB65B63B1E251E /* SavingsGoalViewModel.swift */,
+				44402660BFD5029C67C54E19 /* SettingsViewModel.swift */,
 				D7ADFA2E24EA75DF3AAD13CA /* TransactionsViewModel.swift */,
 			);
 			path = ViewModels;
@@ -397,6 +424,30 @@
 				78B67575A1852BCB27D1CAA5 /* RecurringTransactionsView.swift */,
 			);
 			path = Recurring;
+			sourceTree = "<group>";
+		};
+		AA445566778899001122AABB /* Payslips */ = {
+			isa = PBXGroup;
+			children = (
+				BB2233445566778899001122 /* PayslipView.swift */,
+			);
+			path = Payslips;
+			sourceTree = "<group>";
+		};
+		AA556677889900112233BBCC /* Pension */ = {
+			isa = PBXGroup;
+			children = (
+				DD2233445566778899001122 /* PensionView.swift */,
+			);
+			path = Pension;
+			sourceTree = "<group>";
+		};
+		AA667788990011223344CCDD /* Reports */ = {
+			isa = PBXGroup;
+			children = (
+				FF2233445566778899001122 /* ReportsView.swift */,
+			);
+			path = Reports;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -514,6 +565,9 @@
 				E557B7719C1CFD781F4A0EA2 /* EncryptionServiceTests.swift in Sources */,
 				A1B2C3D4E5F60718192A3B4C /* PensionDataTests.swift in Sources */,
 				B2C3D4E5F6071829A3B4C5D6 /* PayslipTests.swift in Sources */,
+				AA3344556677889900112233 /* PayslipViewModelTests.swift in Sources */,
+				CC3344556677889900112233 /* PensionViewModelTests.swift in Sources */,
+				EE3344556677889900112233 /* ReportsViewModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -561,6 +615,12 @@
 				93A148B65D619696C00F5C0C /* RecurringViewModel.swift in Sources */,
 				B6968FACF8E460DC0846205F /* SavingsGoalView.swift in Sources */,
 				DFEF52760B09451C2DBC86FA /* RecurringTransactionsView.swift in Sources */,
+				AA1122334455667788990011 /* PayslipViewModel.swift in Sources */,
+				AA2233445566778899001122 /* PayslipView.swift in Sources */,
+				CC1122334455667788990011 /* PensionViewModel.swift in Sources */,
+				CC2233445566778899001122 /* PensionView.swift in Sources */,
+				EE1122334455667788990011 /* ReportsViewModel.swift in Sources */,
+				EE2233445566778899001122 /* ReportsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
