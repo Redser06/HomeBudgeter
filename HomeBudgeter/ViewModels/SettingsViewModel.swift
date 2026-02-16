@@ -72,6 +72,21 @@ final class SettingsViewModel {
         didSet { UserDefaults.standard.set(encryptDocuments, forKey: Keys.encryptDocuments) }
     }
 
+    /// The user's preferred AI provider for payslip parsing.
+    var preferredAIProvider: AIProvider {
+        didSet { UserDefaults.standard.set(preferredAIProvider.rawValue, forKey: Keys.preferredAIProvider) }
+    }
+
+    /// Whether payslip parsing should be attempted automatically on file import.
+    var autoParsePayslips: Bool {
+        didSet { UserDefaults.standard.set(autoParsePayslips, forKey: Keys.autoParsePayslips) }
+    }
+
+    /// Whether bill parsing should be attempted automatically on file import.
+    var autoParseBills: Bool {
+        didSet { UserDefaults.standard.set(autoParseBills, forKey: Keys.autoParseBills) }
+    }
+
     // MARK: - Enumerations
 
     enum DarkModePreference: String, CaseIterable {
@@ -104,6 +119,16 @@ final class SettingsViewModel {
 
     /// Example of how a typical amount looks in the active locale.
     var currencyExample: String { selectedLocale.exampleFormatted }
+
+    /// Whether a Claude API key is configured in the Keychain.
+    var isClaudeKeyConfigured: Bool {
+        KeychainManager.shared.retrieve(key: .claudeApiKey) != nil
+    }
+
+    /// Whether a Gemini API key is configured in the Keychain.
+    var isGeminiKeyConfigured: Bool {
+        KeychainManager.shared.retrieve(key: .geminiApiKey) != nil
+    }
 
     /// The week-day name for `startOfWeek`.
     var startOfWeekName: String {
@@ -170,6 +195,25 @@ final class SettingsViewModel {
 
         self.encryptDocuments = UserDefaults.standard.bool(forKey: Keys.encryptDocuments)
 
+        if let providerRaw = UserDefaults.standard.string(forKey: Keys.preferredAIProvider),
+           let provider = AIProvider(rawValue: providerRaw) {
+            self.preferredAIProvider = provider
+        } else {
+            self.preferredAIProvider = .claude
+        }
+
+        if UserDefaults.standard.object(forKey: Keys.autoParsePayslips) == nil {
+            self.autoParsePayslips = true
+        } else {
+            self.autoParsePayslips = UserDefaults.standard.bool(forKey: Keys.autoParsePayslips)
+        }
+
+        if UserDefaults.standard.object(forKey: Keys.autoParseBills) == nil {
+            self.autoParseBills = true
+        } else {
+            self.autoParseBills = UserDefaults.standard.bool(forKey: Keys.autoParseBills)
+        }
+
         // Ensure CurrencyFormatter is aligned with the restored locale.
         CurrencyFormatter.shared.setLocale(selectedLocale)
     }
@@ -188,6 +232,9 @@ final class SettingsViewModel {
         showCentsInDisplay       = true
         darkModePreference       = .system
         encryptDocuments         = false
+        preferredAIProvider      = .claude
+        autoParsePayslips        = true
+        autoParseBills           = true
     }
 
     /// Removes the encryption key from the Keychain.
@@ -195,6 +242,22 @@ final class SettingsViewModel {
     func clearEncryptionKey() {
         let keychain = KeychainManager.shared
         try? keychain.delete(key: .encryptionSalt)
+    }
+
+    /// Saves or updates an API key for the specified AI provider.
+    func saveAPIKey(_ key: String, for provider: AIProvider) {
+        let keychainKey: KeychainManager.KeychainKey = provider == .claude ? .claudeApiKey : .geminiApiKey
+        if key.isEmpty {
+            try? KeychainManager.shared.delete(key: keychainKey)
+        } else {
+            try? KeychainManager.shared.upsert(key: keychainKey, value: key)
+        }
+    }
+
+    /// Removes the API key for the specified provider from the Keychain.
+    func clearAPIKey(for provider: AIProvider) {
+        let keychainKey: KeychainManager.KeychainKey = provider == .claude ? .claudeApiKey : .geminiApiKey
+        try? KeychainManager.shared.delete(key: keychainKey)
     }
 
     /// Exports app data to a temporary JSON file and returns its URL.
@@ -228,6 +291,9 @@ final class SettingsViewModel {
         static let showCentsInDisplay      = "showCentsInDisplay"
         static let darkModePreference      = "darkModePreference"
         static let encryptDocuments        = "encryptDocuments"
+        static let preferredAIProvider     = "preferredAIProvider"
+        static let autoParsePayslips       = "autoParsePayslips"
+        static let autoParseBills          = "autoParseBills"
     }
 }
 

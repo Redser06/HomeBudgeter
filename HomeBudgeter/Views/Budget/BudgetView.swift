@@ -180,15 +180,9 @@ struct BudgetCategoryRow: View {
 
                     Spacer()
 
-                    // Edit button
-                    Button {
-                        onTap()
-                    } label: {
-                        Image(systemName: "pencil")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
+                    Image(systemName: "pencil")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
 
                 // Progress Bar with animation
@@ -272,6 +266,7 @@ struct BudgetCategoryRow: View {
         .background(Color(.controlBackgroundColor))
         .cornerRadius(12)
         .contentShape(Rectangle())
+        .onTapGesture { onTap() }
         .onAppear {
             withAnimation(.easeOut(duration: 0.8).delay(0.1)) {
                 animatedProgress = progress

@@ -13,6 +13,7 @@ enum NavigationItem: String, CaseIterable, Identifiable {
     case transactions = "Transactions"
     case savings = "Savings"
     case recurring = "Recurring"
+    case bills = "Bills"
     case payslips = "Payslips"
     case pension = "Pension"
     case reports = "Reports"
@@ -27,6 +28,7 @@ enum NavigationItem: String, CaseIterable, Identifiable {
         case .transactions: return "list.bullet.rectangle.fill"
         case .savings: return "target"
         case .recurring: return "repeat.circle.fill"
+        case .bills: return "doc.plaintext.fill"
         case .payslips: return "doc.text.fill"
         case .pension: return "building.columns.fill"
         case .reports: return "chart.bar.fill"
@@ -79,6 +81,8 @@ struct DetailView: View {
             SavingsGoalView()
         case .recurring:
             RecurringTransactionsView()
+        case .bills:
+            BillsView()
         case .payslips:
             PayslipView()
         case .pension:

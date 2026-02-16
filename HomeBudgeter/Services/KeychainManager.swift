@@ -40,6 +40,8 @@ final class KeychainManager {
     enum KeychainKey: String {
         case apiKey         = "com.homebudgeter.apiKey"
         case encryptionSalt = "com.homebudgeter.encryptionSalt"
+        case claudeApiKey   = "com.homebudgeter.claudeApiKey"
+        case geminiApiKey   = "com.homebudgeter.geminiApiKey"
     }
 
     // MARK: - Store

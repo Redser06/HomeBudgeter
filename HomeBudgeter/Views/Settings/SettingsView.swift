@@ -17,6 +17,14 @@ struct SettingsView: View {
     @State private var showingClearKeychainAlert = false
     @State private var exportMessage: String?
     @State private var importMessage: String?
+    @State private var claudeApiKeyInput: String = ""
+    @State private var geminiApiKeyInput: String = ""
+    @State private var isEditingClaudeKey: Bool = false
+    @State private var isEditingGeminiKey: Bool = false
+    @State private var isTestingClaude: Bool = false
+    @State private var isTestingGemini: Bool = false
+    @State private var claudeTestResult: Bool?
+    @State private var geminiTestResult: Bool?
 
     let weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
@@ -157,6 +165,206 @@ struct SettingsView: View {
                     }
                 } header: {
                     Label("Security", systemImage: "lock.shield")
+                }
+
+                // AI & Parsing Section
+                Section {
+                    Picker("Preferred Provider", selection: $vm.preferredAIProvider) {
+                        ForEach(AIProvider.allCases) { provider in
+                            Text(provider.rawValue).tag(provider)
+                        }
+                    }
+
+                    Toggle("Auto-parse imported payslips", isOn: $vm.autoParsePayslips)
+                    Toggle("Auto-parse imported bills", isOn: $vm.autoParseBills)
+
+                    Text("When enabled, uploaded PDF documents are automatically parsed using AI to pre-fill forms.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Divider()
+
+                    // Claude API Key
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 6) {
+                            Text("Claude API Key")
+                            if viewModel.isClaudeKeyConfigured {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.budgetHealthy)
+                                    .font(.caption)
+                            }
+                        }
+                        Text("From console.anthropic.com")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+
+                        if isEditingClaudeKey {
+                            HStack {
+                                SecureField("sk-ant-...", text: $claudeApiKeyInput)
+                                Button("Save") {
+                                    if !claudeApiKeyInput.isEmpty {
+                                        viewModel.saveAPIKey(claudeApiKeyInput, for: .claude)
+                                    }
+                                    claudeApiKeyInput = ""
+                                    isEditingClaudeKey = false
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .controlSize(.small)
+                                Button("Cancel") {
+                                    claudeApiKeyInput = ""
+                                    isEditingClaudeKey = false
+                                }
+                                .controlSize(.small)
+                            }
+                        } else if viewModel.isClaudeKeyConfigured {
+                            HStack {
+                                Text("sk-ant-****configured****")
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Button("Update") {
+                                    claudeApiKeyInput = ""
+                                    isEditingClaudeKey = true
+                                }
+                                .controlSize(.small)
+                                Button(role: .destructive) {
+                                    viewModel.clearAPIKey(for: .claude)
+                                    claudeTestResult = nil
+                                } label: {
+                                    Label("Remove", systemImage: "trash")
+                                }
+                                .controlSize(.small)
+                            }
+                        } else {
+                            HStack {
+                                Text("Not configured")
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Button("Add Key") {
+                                    claudeApiKeyInput = ""
+                                    isEditingClaudeKey = true
+                                }
+                                .controlSize(.small)
+                            }
+                        }
+                    }
+
+                    HStack {
+                        Button {
+                            Task {
+                                isTestingClaude = true
+                                claudeTestResult = nil
+                                claudeTestResult = await PayslipParsingService.shared.testConnection(provider: .claude)
+                                isTestingClaude = false
+                            }
+                        } label: {
+                            if isTestingClaude {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Label("Test Claude", systemImage: "antenna.radiowaves.left.and.right")
+                            }
+                        }
+                        .disabled(!viewModel.isClaudeKeyConfigured || isTestingClaude)
+
+                        if let result = claudeTestResult {
+                            Image(systemName: result ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundColor(result ? .budgetHealthy : .budgetDanger)
+                        }
+                    }
+
+                    Divider()
+
+                    // Gemini API Key
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 6) {
+                            Text("Gemini API Key")
+                            if viewModel.isGeminiKeyConfigured {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.budgetHealthy)
+                                    .font(.caption)
+                            }
+                        }
+                        Text("From aistudio.google.com")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+
+                        if isEditingGeminiKey {
+                            HStack {
+                                SecureField("AI...", text: $geminiApiKeyInput)
+                                Button("Save") {
+                                    if !geminiApiKeyInput.isEmpty {
+                                        viewModel.saveAPIKey(geminiApiKeyInput, for: .gemini)
+                                    }
+                                    geminiApiKeyInput = ""
+                                    isEditingGeminiKey = false
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .controlSize(.small)
+                                Button("Cancel") {
+                                    geminiApiKeyInput = ""
+                                    isEditingGeminiKey = false
+                                }
+                                .controlSize(.small)
+                            }
+                        } else if viewModel.isGeminiKeyConfigured {
+                            HStack {
+                                Text("****configured****")
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Button("Update") {
+                                    geminiApiKeyInput = ""
+                                    isEditingGeminiKey = true
+                                }
+                                .controlSize(.small)
+                                Button(role: .destructive) {
+                                    viewModel.clearAPIKey(for: .gemini)
+                                    geminiTestResult = nil
+                                } label: {
+                                    Label("Remove", systemImage: "trash")
+                                }
+                                .controlSize(.small)
+                            }
+                        } else {
+                            HStack {
+                                Text("Not configured")
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Button("Add Key") {
+                                    geminiApiKeyInput = ""
+                                    isEditingGeminiKey = true
+                                }
+                                .controlSize(.small)
+                            }
+                        }
+                    }
+
+                    HStack {
+                        Button {
+                            Task {
+                                isTestingGemini = true
+                                geminiTestResult = nil
+                                geminiTestResult = await PayslipParsingService.shared.testConnection(provider: .gemini)
+                                isTestingGemini = false
+                            }
+                        } label: {
+                            if isTestingGemini {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Label("Test Gemini", systemImage: "antenna.radiowaves.left.and.right")
+                            }
+                        }
+                        .disabled(!viewModel.isGeminiKeyConfigured || isTestingGemini)
+
+                        if let result = geminiTestResult {
+                            Image(systemName: result ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundColor(result ? .budgetHealthy : .budgetDanger)
+                        }
+                    }
+                } header: {
+                    Label("AI & Parsing", systemImage: "cpu")
                 }
 
                 // Data Management Section

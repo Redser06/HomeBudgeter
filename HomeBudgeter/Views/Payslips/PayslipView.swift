@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct PayslipView: View {
     @Environment(\.modelContext) private var modelContext
@@ -24,6 +25,13 @@ struct PayslipView: View {
                         .foregroundColor(.secondary)
                 }
                 Spacer()
+
+                Button {
+                    viewModel.showingFileImporter = true
+                } label: {
+                    Label("Upload Payslip", systemImage: "doc.badge.arrow.up")
+                }
+                .buttonStyle(.bordered)
 
                 Button {
                     viewModel.showingCreateSheet = true
@@ -138,6 +146,30 @@ struct PayslipView: View {
         }
         .sheet(item: $viewModel.selectedPayslip) { payslip in
             PayslipDetailSheet(viewModel: viewModel, payslip: payslip, modelContext: modelContext)
+        }
+        .fileImporter(
+            isPresented: $viewModel.showingFileImporter,
+            allowedContentTypes: [.pdf, .png, .jpeg],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                if let url = urls.first {
+                    Task {
+                        await viewModel.importPayslipFile(from: url, modelContext: modelContext)
+                    }
+                }
+            case .failure(let error):
+                viewModel.importError = error.localizedDescription
+            }
+        }
+        .alert("Import Error", isPresented: Binding(
+            get: { viewModel.importError != nil },
+            set: { if !$0 { viewModel.importError = nil } }
+        )) {
+            Button("OK") { viewModel.importError = nil }
+        } message: {
+            Text(viewModel.importError ?? "An unknown error occurred")
         }
     }
 }
@@ -261,11 +293,93 @@ struct AddPayslipSheet: View {
         CurrencyFormatter.shared.locale.currencyCode
     }
 
+    private var attachedDocument: Document? {
+        viewModel.importedDocument
+    }
+
     var body: some View {
         VStack(spacing: 20) {
             Text("New Payslip")
                 .font(.title2)
                 .fontWeight(.bold)
+
+            if let doc = attachedDocument {
+                HStack(spacing: 8) {
+                    Image(systemName: "paperclip")
+                        .foregroundColor(.primaryBlue)
+                    Text(doc.filename)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                    Spacer()
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.budgetHealthy)
+                }
+                .padding(10)
+                .background(Color.primaryBlue.opacity(0.08))
+                .cornerRadius(8)
+            }
+
+            // Parsing status banners
+            if viewModel.isParsing {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Parsing payslip with AI...")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity)
+                .background(Color.primaryBlue.opacity(0.08))
+                .cornerRadius(8)
+            }
+
+            if let error = viewModel.parsingError {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.budgetWarning)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("AI parsing failed")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Text(error)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                }
+                .padding(10)
+                .background(Color.budgetWarning.opacity(0.08))
+                .cornerRadius(8)
+            }
+
+            if viewModel.parsedData != nil && !viewModel.isParsing {
+                HStack(spacing: 8) {
+                    Image(systemName: "sparkles")
+                        .foregroundColor(.budgetHealthy)
+                    Text("Fields pre-filled from AI. Please review before saving.")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    if let confidence = viewModel.parsedData?.confidence {
+                        Text("\(Int(confidence * 100))%")
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                confidence >= 0.8 ? Color.budgetHealthy.opacity(0.15) :
+                                confidence >= 0.5 ? Color.budgetWarning.opacity(0.15) :
+                                Color.budgetDanger.opacity(0.15)
+                            )
+                            .cornerRadius(4)
+                    }
+                }
+                .padding(10)
+                .background(Color.budgetHealthy.opacity(0.08))
+                .cornerRadius(8)
+            }
 
             Form {
                 Section("Pay Details") {
@@ -353,7 +467,12 @@ struct AddPayslipSheet: View {
             .formStyle(.grouped)
 
             HStack {
-                Button("Cancel") { dismiss() }
+                Button("Cancel") {
+                    viewModel.importedDocument = nil
+                    viewModel.parsedData = nil
+                    viewModel.parsingError = nil
+                    dismiss()
+                }
                     .buttonStyle(.bordered)
 
                 Button("Add Payslip") {
@@ -373,6 +492,13 @@ struct AddPayslipSheet: View {
                         notes: notes.isEmpty ? nil : notes,
                         modelContext: modelContext
                     )
+                    // Link uploaded document to the new payslip if present
+                    if let doc = attachedDocument, let newPayslip = viewModel.payslips.first {
+                        viewModel.linkDocumentToPayslip(newPayslip, document: doc, modelContext: modelContext)
+                    }
+                    viewModel.importedDocument = nil
+                    viewModel.parsedData = nil
+                    viewModel.parsingError = nil
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
@@ -380,7 +506,38 @@ struct AddPayslipSheet: View {
             }
         }
         .padding()
-        .frame(width: 500, height: 700)
+        .frame(width: 500, height: 750)
+        .onAppear {
+            if let parsed = viewModel.parsedData {
+                if let date = ParsedPayslipData.toDate(parsed.payDate) {
+                    payDate = date
+                }
+                if let date = ParsedPayslipData.toDate(parsed.payPeriodStart) {
+                    payPeriodStart = date
+                }
+                if let date = ParsedPayslipData.toDate(parsed.payPeriodEnd) {
+                    payPeriodEnd = date
+                }
+
+                grossPay = Double(truncating: ParsedPayslipData.toDecimal(parsed.grossPay) as NSNumber)
+                netPay = Double(truncating: ParsedPayslipData.toDecimal(parsed.netPay) as NSNumber)
+                incomeTax = Double(truncating: ParsedPayslipData.toDecimal(parsed.incomeTax) as NSNumber)
+                socialInsurance = Double(truncating: ParsedPayslipData.toDecimal(parsed.socialInsurance) as NSNumber)
+
+                if let usc = parsed.universalCharge, ParsedPayslipData.toDecimal(usc) > 0 {
+                    hasUniversalCharge = true
+                    universalCharge = Double(truncating: ParsedPayslipData.toDecimal(usc) as NSNumber)
+                }
+
+                pensionContribution = Double(truncating: ParsedPayslipData.toDecimal(parsed.pensionContribution) as NSNumber)
+                employerPensionContribution = Double(truncating: ParsedPayslipData.toDecimal(parsed.employerPensionContribution) as NSNumber)
+                otherDeductions = Double(truncating: ParsedPayslipData.toDecimal(parsed.otherDeductions) as NSNumber)
+
+                if let emp = parsed.employer, !emp.isEmpty {
+                    employer = emp
+                }
+            }
+        }
     }
 }
 
