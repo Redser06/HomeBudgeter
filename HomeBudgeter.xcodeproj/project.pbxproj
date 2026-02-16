@@ -12,6 +12,7 @@
 		05525881104FAB3044AE522F /* BudgetCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79CA7665FD6317A7DEE2B68F /* BudgetCategory.swift */; };
 		05C9F9F22356A4B794BDB296 /* CurrencyTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FA8987B46C6BBF6C6A7178F /* CurrencyTextField.swift */; };
 		0BF2F489065D757A359FB392 /* PayslipTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00CC6BE3C41C821514BCC87E /* PayslipTests.swift */; };
+		12ADD3500094F8F6CFFD94A1 /* RecurringBillDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10C0107F89BE22084E833EA2 /* RecurringBillDetectorTests.swift */; };
 		13030AC74BDB0CF0322C66BE /* ReportsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A212FA228004EF820698A1E /* ReportsViewModel.swift */; };
 		1A042549DC86E1A9CC256B0B /* EncryptionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0688DE4C9C915BC22D7CEF6D /* EncryptionServiceTests.swift */; };
 		22C03C545B130D34E39F4447 /* DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8B3B504FAA21E245BAD7523 /* DashboardViewModel.swift */; };
@@ -46,6 +47,7 @@
 		768B9B5AD6F999C3F4FEBE6F /* RecurringTransactionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 582C33D03905EDFC888476F4 /* RecurringTransactionServiceTests.swift */; };
 		7762AE8A62A3C996014EC383 /* PayslipViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95869822AE0BB09A60DFA70 /* PayslipViewModelTests.swift */; };
 		7D3CC7CA5E93E87E8E34BE3C /* CurrencyFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F45FF592BDFC8E4C95A96DCC /* CurrencyFormatter.swift */; };
+		811B009B7C37D7F369FD8839 /* BillMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9790DCA87CEAA77B6540CBE9 /* BillMigrationTests.swift */; };
 		81AAD27892C993A4EFA303E0 /* BudgetViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F33A625C1ADB43ED8F078BAB /* BudgetViewModelTests.swift */; };
 		8308E8B9E5AACF38E8937AE9 /* BillsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86A24E3639D1DBF08518BFD8 /* BillsViewModel.swift */; };
 		86320876E5117A4B022DFA64 /* DocumentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 905831CC8B927E47D622322A /* DocumentTests.swift */; };
@@ -58,7 +60,10 @@
 		A016C3EC757F461370135207 /* KeychainManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD974E16C413D0176D112770 /* KeychainManager.swift */; };
 		A0B04971BE847F9990499147 /* PensionDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DF1FB95CA20201A7E0BD12F /* PensionDataTests.swift */; };
 		A2FC6C88EA017283644D0ABE /* ReportsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B0E377F9D29A7C09E7F604 /* ReportsViewModelTests.swift */; };
+		A2FF0B192AB4553859081D35 /* RecurringBillDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 883901095DCEC3603CA2B3BD /* RecurringBillDetector.swift */; };
 		A60BBC91E2F0BF56253A3960 /* RecurringTransactionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E39E396BB44DA935244BAA /* RecurringTransactionService.swift */; };
+		A964AB0862C52F1A1F36A862 /* BillLineItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80D56667362C5AF261605929 /* BillLineItem.swift */; };
+		B076AC8DA1D9F0291AB04142 /* RecurringSuggestionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A1F29B586A50EF062EF6BFA /* RecurringSuggestionSheet.swift */; };
 		B169014AC1E61616E6CFF4A2 /* Color+Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C1A1533C99F5B072C40181E /* Color+Theme.swift */; };
 		BB1A8830023396C64D6D3647 /* RecurringViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4993240D4C7B5A6441F6E91E /* RecurringViewModel.swift */; };
 		BCAB401606BEBE93B6A0CFD7 /* DataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEE41F6896CA45164F80C5CF /* DataService.swift */; };
@@ -67,6 +72,7 @@
 		C398D7C3142CA1372C042903 /* HomeBudgeterApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45889D29E7EA707B1A58F977 /* HomeBudgeterApp.swift */; };
 		C3C93C808566DBEF474ED9A2 /* PayslipViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ECC5EC5C99F1016E88C3F9F /* PayslipViewModel.swift */; };
 		C3E1065E33CF7FE0C36A1CD5 /* SavingsGoalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F400947654F60593E774EF9 /* SavingsGoalView.swift */; };
+		C8ED2B92CD9A4D08E721671E /* BillMigrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA4AF370324F7D5D524806E0 /* BillMigrationService.swift */; };
 		C9369C49B8FE75F805EB94A3 /* Document.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CF3852E1A1F2CE1C429F918 /* Document.swift */; };
 		CF325DD2660714263051FDDB /* LocaleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DC6AE9EA71A50C7ADF33CC4 /* LocaleManager.swift */; };
 		CFF198DA0991DE1F4D643234 /* SavingsGoal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E792C97ED8A997A5A4F81A7 /* SavingsGoal.swift */; };
@@ -78,6 +84,7 @@
 		E434643F62BA25C3C35157AE /* BudgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D5DFACBD1F6145B6B93A168 /* BudgetView.swift */; };
 		E4D36D80CFDD970916ACCC82 /* DocumentsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAB05DAEDA683E0AACE7002B /* DocumentsViewModelTests.swift */; };
 		E7F2B04B6956878CA7E49010 /* BillParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E665A5376683049A0F6CA60 /* BillParsingTests.swift */; };
+		EA2A7848974C424875C576F1 /* RecurringViewModelDetectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 447B66203DD2F3549CB36AB8 /* RecurringViewModelDetectionTests.swift */; };
 		EB468E6414BC71C3138B24C2 /* SavingsGoalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D480561801A0FB9F79A9A78F /* SavingsGoalTests.swift */; };
 		EB7D7E0A616B6B34008E01C6 /* RecurringTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC5AE3E3B61712145D8375D1 /* RecurringTemplate.swift */; };
 		EC4FDC31D855C9E51B46BF04 /* StatCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D45B14EE3206FDDAE411A2B /* StatCard.swift */; };
@@ -102,6 +109,7 @@
 		0BA405C6754515EA86FFF57E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		0C6D6B3A7DF5833F13E75E8B /* Payslip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Payslip.swift; sourceTree = "<group>"; };
 		1071A1B7BE3B5B823E14421A /* PensionViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PensionViewModelTests.swift; sourceTree = "<group>"; };
+		10C0107F89BE22084E833EA2 /* RecurringBillDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecurringBillDetectorTests.swift; sourceTree = "<group>"; };
 		1E792C97ED8A997A5A4F81A7 /* SavingsGoal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsGoal.swift; sourceTree = "<group>"; };
 		2CF8D19BA3F4D3DB7744B959 /* BudgetCategoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetCategoryTests.swift; sourceTree = "<group>"; };
 		2D45B14EE3206FDDAE411A2B /* StatCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatCard.swift; sourceTree = "<group>"; };
@@ -113,6 +121,7 @@
 		3ECC5EC5C99F1016E88C3F9F /* PayslipViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PayslipViewModel.swift; sourceTree = "<group>"; };
 		440BBD10950666C005589DB3 /* HomeBudgeterTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HomeBudgeterTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		44402660BFD5029C67C54E19 /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
+		447B66203DD2F3549CB36AB8 /* RecurringViewModelDetectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecurringViewModelDetectionTests.swift; sourceTree = "<group>"; };
 		45889D29E7EA707B1A58F977 /* HomeBudgeterApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeBudgeterApp.swift; sourceTree = "<group>"; };
 		460D9FD1B22BAEB616ED2F24 /* QuickActionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickActionButton.swift; sourceTree = "<group>"; };
 		4993240D4C7B5A6441F6E91E /* RecurringViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecurringViewModel.swift; sourceTree = "<group>"; };
@@ -134,20 +143,25 @@
 		795E3963B778A0C65F29C7F9 /* TransactionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionsView.swift; sourceTree = "<group>"; };
 		79CA7665FD6317A7DEE2B68F /* BudgetCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetCategory.swift; sourceTree = "<group>"; };
 		7BCD02FE676E56E2B7103C3D /* TransactionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionTests.swift; sourceTree = "<group>"; };
+		80D56667362C5AF261605929 /* BillLineItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BillLineItem.swift; sourceTree = "<group>"; };
 		83A340B488A142123EE5D077 /* SavingsGoalViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsGoalViewModelTests.swift; sourceTree = "<group>"; };
 		86A24E3639D1DBF08518BFD8 /* BillsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BillsViewModel.swift; sourceTree = "<group>"; };
+		883901095DCEC3603CA2B3BD /* RecurringBillDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecurringBillDetector.swift; sourceTree = "<group>"; };
 		8912358642CFA82FF8AC1AD5 /* PersistenceController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceController.swift; sourceTree = "<group>"; };
 		89D72B6ACB1F053E3E79F173 /* DataFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataFlowTests.swift; sourceTree = "<group>"; };
 		8E7A4352B977A6B87D8F93BA /* CurrencyFormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrencyFormatterTests.swift; sourceTree = "<group>"; };
 		8F400947654F60593E774EF9 /* SavingsGoalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsGoalView.swift; sourceTree = "<group>"; };
 		905831CC8B927E47D622322A /* DocumentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentTests.swift; sourceTree = "<group>"; };
 		946CD61E50D7558F507D9DEA /* DashboardViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardViewModelTests.swift; sourceTree = "<group>"; };
+		9790DCA87CEAA77B6540CBE9 /* BillMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BillMigrationTests.swift; sourceTree = "<group>"; };
+		9A1F29B586A50EF062EF6BFA /* RecurringSuggestionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecurringSuggestionSheet.swift; sourceTree = "<group>"; };
 		9A212FA228004EF820698A1E /* ReportsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportsViewModel.swift; sourceTree = "<group>"; };
 		9A89F0643B6D1A463890A543 /* PayslipView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PayslipView.swift; sourceTree = "<group>"; };
 		9E665A5376683049A0F6CA60 /* BillParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BillParsingTests.swift; sourceTree = "<group>"; };
 		A66F8797D0A3D68EF38DA3E7 /* RecurringViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecurringViewModelTests.swift; sourceTree = "<group>"; };
 		A79BCFA3F4B8F2CEBA55BD0A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B8E39E396BB44DA935244BAA /* RecurringTransactionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecurringTransactionService.swift; sourceTree = "<group>"; };
+		BA4AF370324F7D5D524806E0 /* BillMigrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BillMigrationService.swift; sourceTree = "<group>"; };
 		BC2ACF0B4C21CF2655F2162A /* AccountTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountTests.swift; sourceTree = "<group>"; };
 		BC5AE3E3B61712145D8375D1 /* RecurringTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecurringTemplate.swift; sourceTree = "<group>"; };
 		BD974E16C413D0176D112770 /* KeychainManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainManager.swift; sourceTree = "<group>"; };
@@ -278,6 +292,7 @@
 			isa = PBXGroup;
 			children = (
 				340D24F3758EE228D2DBF56A /* BillsView.swift */,
+				9A1F29B586A50EF062EF6BFA /* RecurringSuggestionSheet.swift */,
 			);
 			path = Bills;
 			sourceTree = "<group>";
@@ -294,6 +309,7 @@
 		6269A6D900879A3B86DA6F2A /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				BA4AF370324F7D5D524806E0 /* BillMigrationService.swift */,
 				F45FF592BDFC8E4C95A96DCC /* CurrencyFormatter.swift */,
 				FEE41F6896CA45164F80C5CF /* DataService.swift */,
 				5EC8E07E8E2B46F818048BBF /* FileEncryptionService.swift */,
@@ -301,6 +317,7 @@
 				6DC6AE9EA71A50C7ADF33CC4 /* LocaleManager.swift */,
 				E669D6F10EAD107B029676D1 /* PayslipParsingService.swift */,
 				8912358642CFA82FF8AC1AD5 /* PersistenceController.swift */,
+				883901095DCEC3603CA2B3BD /* RecurringBillDetector.swift */,
 				B8E39E396BB44DA935244BAA /* RecurringTransactionService.swift */,
 			);
 			path = Services;
@@ -344,6 +361,7 @@
 				CAB05DAEDA683E0AACE7002B /* DocumentsViewModelTests.swift */,
 				D95869822AE0BB09A60DFA70 /* PayslipViewModelTests.swift */,
 				1071A1B7BE3B5B823E14421A /* PensionViewModelTests.swift */,
+				447B66203DD2F3549CB36AB8 /* RecurringViewModelDetectionTests.swift */,
 				A66F8797D0A3D68EF38DA3E7 /* RecurringViewModelTests.swift */,
 				D9B0E377F9D29A7C09E7F604 /* ReportsViewModelTests.swift */,
 				83A340B488A142123EE5D077 /* SavingsGoalViewModelTests.swift */,
@@ -364,10 +382,12 @@
 		A82B1035D66AAE354000B9A9 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				9790DCA87CEAA77B6540CBE9 /* BillMigrationTests.swift */,
 				9E665A5376683049A0F6CA60 /* BillParsingTests.swift */,
 				8E7A4352B977A6B87D8F93BA /* CurrencyFormatterTests.swift */,
 				0688DE4C9C915BC22D7CEF6D /* EncryptionServiceTests.swift */,
 				30E968A33CFBC951469CE732 /* PayslipParsingServiceTests.swift */,
+				10C0107F89BE22084E833EA2 /* RecurringBillDetectorTests.swift */,
 				582C33D03905EDFC888476F4 /* RecurringTransactionServiceTests.swift */,
 			);
 			path = Services;
@@ -404,6 +424,7 @@
 			children = (
 				FCF55DCA0F8C2B253BDF27E6 /* Account.swift */,
 				C4A79D2CF6E21578B5290DDB /* AppLocale.swift */,
+				80D56667362C5AF261605929 /* BillLineItem.swift */,
 				79CA7665FD6317A7DEE2B68F /* BudgetCategory.swift */,
 				4CF3852E1A1F2CE1C429F918 /* Document.swift */,
 				0C6D6B3A7DF5833F13E75E8B /* Payslip.swift */,
@@ -572,6 +593,7 @@
 			files = (
 				0497821C538367050B5AFCC4 /* AccountTests.swift in Sources */,
 				BD484BB5B2162C77CCD5C20A /* AppLocaleTests.swift in Sources */,
+				811B009B7C37D7F369FD8839 /* BillMigrationTests.swift in Sources */,
 				E7F2B04B6956878CA7E49010 /* BillParsingTests.swift in Sources */,
 				48F47AD516E6C77AE2CEB160 /* BillsViewModelTests.swift in Sources */,
 				9FF796F716868B2A8BEC7F40 /* BudgetCategoryTests.swift in Sources */,
@@ -588,8 +610,10 @@
 				A0B04971BE847F9990499147 /* PensionDataTests.swift in Sources */,
 				5BD0E9BED9B7A61B3B0E3591 /* PensionViewModelTests.swift in Sources */,
 				4EB9638F66892FEE348ACFBB /* PersistenceTests.swift in Sources */,
+				12ADD3500094F8F6CFFD94A1 /* RecurringBillDetectorTests.swift in Sources */,
 				DED753999283966331EA1E73 /* RecurringTemplateTests.swift in Sources */,
 				768B9B5AD6F999C3F4FEBE6F /* RecurringTransactionServiceTests.swift in Sources */,
+				EA2A7848974C424875C576F1 /* RecurringViewModelDetectionTests.swift in Sources */,
 				F992C50158715ECDE6F3071C /* RecurringViewModelTests.swift in Sources */,
 				A2FC6C88EA017283644D0ABE /* ReportsViewModelTests.swift in Sources */,
 				EB468E6414BC71C3138B24C2 /* SavingsGoalTests.swift in Sources */,
@@ -606,6 +630,8 @@
 			files = (
 				D4D341954C732A51667A9B9E /* Account.swift in Sources */,
 				494644FB9E4212FD4F7D4699 /* AppLocale.swift in Sources */,
+				A964AB0862C52F1A1F36A862 /* BillLineItem.swift in Sources */,
+				C8ED2B92CD9A4D08E721671E /* BillMigrationService.swift in Sources */,
 				52E30AF0568F28A196075E3D /* BillsView.swift in Sources */,
 				8308E8B9E5AACF38E8937AE9 /* BillsViewModel.swift in Sources */,
 				05525881104FAB3044AE522F /* BudgetCategory.swift in Sources */,
@@ -637,6 +663,8 @@
 				ECB138A7DD5BF8D8519D4510 /* PersistenceController.swift in Sources */,
 				5E292DFEE32987EDE46A1F6A /* ProgressBar.swift in Sources */,
 				86DC98F97C09292A266742E9 /* QuickActionButton.swift in Sources */,
+				A2FF0B192AB4553859081D35 /* RecurringBillDetector.swift in Sources */,
+				B076AC8DA1D9F0291AB04142 /* RecurringSuggestionSheet.swift in Sources */,
 				EB7D7E0A616B6B34008E01C6 /* RecurringTemplate.swift in Sources */,
 				A60BBC91E2F0BF56253A3960 /* RecurringTransactionService.swift in Sources */,
 				8F20AB64903695357635DE23 /* RecurringTransactionsView.swift in Sources */,

@@ -226,6 +226,16 @@ struct RecurringTemplateRow: View {
                         .background(Color.secondary.opacity(0.1))
                         .cornerRadius(4)
 
+                    if template.isAutoPay {
+                        Text("Auto")
+                            .font(.caption2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.green.opacity(0.15))
+                            .foregroundColor(.green)
+                            .cornerRadius(4)
+                    }
+
                     if isPaused {
                         Text("Paused")
                             .font(.caption2)

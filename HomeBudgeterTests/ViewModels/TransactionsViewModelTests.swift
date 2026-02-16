@@ -19,7 +19,8 @@ final class TransactionsViewModelTests: XCTestCase {
         let schema = Schema([
             Transaction.self, BudgetCategory.self, Account.self,
             Document.self, SavingsGoal.self, Payslip.self, PensionData.self,
-            RecurringTemplate.self
+            RecurringTemplate.self,
+            BillLineItem.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         do {
@@ -355,6 +356,34 @@ final class TransactionsViewModelTests: XCTestCase {
         XCTAssertNil(sut.selectedCategory)
         XCTAssertNil(sut.selectedType)
         XCTAssertEqual(sut.dateRange, .thisMonth)
+    }
+
+    // MARK: - Recurring Detection Trigger
+
+    @MainActor
+    func test_addTransaction_triggersRecurringDetection_afterSecondMatchingTransaction() throws {
+        // Add first transaction — no detection yet
+        let tx1 = Transaction(
+            amount: Decimal(string: "17.99")!,
+            date: Date(),
+            descriptionText: "Netflix",
+            type: .expense
+        )
+        sut.addTransaction(tx1, modelContext: modelContext)
+        XCTAssertNil(sut.detectedRecurring)
+        XCTAssertFalse(sut.showingRecurringSuggestion)
+
+        // Add second transaction with same vendor — detection triggers
+        let tx2 = Transaction(
+            amount: Decimal(string: "17.99")!,
+            date: Date(),
+            descriptionText: "Netflix",
+            type: .expense
+        )
+        sut.addTransaction(tx2, modelContext: modelContext)
+        XCTAssertNotNil(sut.detectedRecurring)
+        XCTAssertTrue(sut.showingRecurringSuggestion)
+        XCTAssertEqual(sut.detectedRecurring?.vendor, "Netflix")
     }
 
     // MARK: - DateRange Tests

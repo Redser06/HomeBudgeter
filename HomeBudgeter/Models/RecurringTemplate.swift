@@ -21,6 +21,8 @@ final class RecurringTemplate {
     var lastProcessedDate: Date?
     var isActive: Bool
     var notes: String?
+    var isVariableAmount: Bool
+    var isAutoPay: Bool
     var createdAt: Date
     var updatedAt: Date
 
@@ -38,6 +40,8 @@ final class RecurringTemplate {
         endDate: Date? = nil,
         nextDueDate: Date? = nil,
         isActive: Bool = true,
+        isVariableAmount: Bool = false,
+        isAutoPay: Bool = false,
         notes: String? = nil,
         category: BudgetCategory? = nil,
         account: Account? = nil
@@ -52,6 +56,8 @@ final class RecurringTemplate {
         self.nextDueDate = nextDueDate ?? startDate
         self.lastProcessedDate = nil
         self.isActive = isActive
+        self.isVariableAmount = isVariableAmount
+        self.isAutoPay = isAutoPay
         self.notes = notes
         self.category = category
         self.account = account
@@ -62,7 +68,7 @@ final class RecurringTemplate {
     // MARK: - Computed Properties
 
     var isOverdue: Bool {
-        nextDueDate < Date() && isActive
+        nextDueDate < Date() && isActive && !isAutoPay
     }
 
     var daysUntilDue: Int {

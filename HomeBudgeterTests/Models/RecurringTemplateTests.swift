@@ -26,7 +26,8 @@ final class RecurringTemplateTests: XCTestCase {
             SavingsGoal.self,
             Payslip.self,
             PensionData.self,
-            RecurringTemplate.self
+            RecurringTemplate.self,
+            BillLineItem.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
 
@@ -144,6 +145,22 @@ final class RecurringTemplateTests: XCTestCase {
 
         // Then
         XCTAssertTrue(template.isOverdue)
+    }
+
+    func test_isOverdue_returnsFalse_whenIsAutoPay() {
+        // Given
+        let template = RecurringTemplate(
+            name: "Netflix",
+            amount: Decimal(string: "17.99")!,
+            type: .expense,
+            frequency: .monthly,
+            startDate: Calendar.current.date(byAdding: .month, value: -2, to: Date())!,
+            isAutoPay: true
+        )
+        template.nextDueDate = Calendar.current.date(byAdding: .day, value: -5, to: Date())!
+
+        // Then — auto-pay templates are never overdue
+        XCTAssertFalse(template.isOverdue)
     }
 
     func test_isOverdue_whenNextDueDateInFuture_returnsFalse() {

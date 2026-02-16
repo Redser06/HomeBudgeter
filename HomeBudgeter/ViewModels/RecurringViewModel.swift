@@ -105,4 +105,45 @@ class RecurringViewModel {
         RecurringTransactionService.shared.generateDueTransactions(modelContext: modelContext)
         loadTemplates(modelContext: modelContext)
     }
+
+    // MARK: - Create Template from Detection
+
+    @MainActor
+    func createTemplateFromDetection(
+        _ result: RecurringBillDetector.DetectionResult,
+        frequency: RecurringFrequency,
+        amount: Decimal,
+        isAutoPay: Bool = false,
+        modelContext: ModelContext
+    ) {
+        let latestDate = result.matchingTransactions.last?.date ?? Date()
+        let nextDueDate = RecurringTransactionService.shared.calculateNextDueDate(
+            from: latestDate,
+            frequency: frequency
+        ) ?? latestDate
+
+        let template = RecurringTemplate(
+            name: result.vendor,
+            amount: amount,
+            type: .expense,
+            frequency: frequency,
+            startDate: result.matchingTransactions.first?.date ?? Date(),
+            nextDueDate: nextDueDate,
+            isActive: true,
+            isVariableAmount: result.isVariableAmount,
+            isAutoPay: isAutoPay,
+            notes: result.suggestedNotes
+        )
+
+        modelContext.insert(template)
+
+        // Retroactively link existing transactions
+        for transaction in result.matchingTransactions {
+            transaction.parentTemplate = template
+            template.generatedTransactions.append(transaction)
+        }
+
+        try? modelContext.save()
+        loadTemplates(modelContext: modelContext)
+    }
 }

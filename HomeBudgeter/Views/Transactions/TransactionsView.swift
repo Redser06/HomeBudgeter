@@ -11,6 +11,7 @@ import SwiftData
 struct TransactionsView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel = TransactionsViewModel()
+    @State private var recurringViewModel = RecurringViewModel()
     @State private var showingAddTransaction = false
     @State private var searchText = ""
     @State private var selectedFilter: TransactionTypeFilter = .all
@@ -134,6 +135,18 @@ struct TransactionsView: View {
         }
         .sheet(item: $viewModel.selectedTransaction) { transaction in
             EditTransactionSheet(viewModel: viewModel, transaction: transaction, modelContext: modelContext)
+        }
+        .sheet(isPresented: $viewModel.showingRecurringSuggestion) {
+            if let result = viewModel.detectedRecurring {
+                RecurringSuggestionSheet(
+                    result: result,
+                    recurringViewModel: recurringViewModel,
+                    modelContext: modelContext,
+                    onDismiss: {
+                        viewModel.detectedRecurring = nil
+                    }
+                )
+            }
         }
     }
 

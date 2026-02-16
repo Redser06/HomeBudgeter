@@ -9,6 +9,8 @@ class TransactionsViewModel {
     var selectedTransaction: Transaction?
     var showingAddTransaction = false
     var showingEditTransaction = false
+    var detectedRecurring: RecurringBillDetector.DetectionResult?
+    var showingRecurringSuggestion = false
 
     var searchText: String = "" {
         didSet { applyFilters() }
@@ -138,10 +140,21 @@ class TransactionsViewModel {
         filteredTransactions = result
     }
 
+    @MainActor
     func addTransaction(_ transaction: Transaction, modelContext: ModelContext) {
         modelContext.insert(transaction)
         try? modelContext.save()
         loadTransactions(modelContext: modelContext)
+
+        // Check for recurring pattern after save
+        let result = RecurringBillDetector.shared.detectRecurringPattern(
+            for: transaction.descriptionText,
+            modelContext: modelContext
+        )
+        if let result {
+            detectedRecurring = result
+            showingRecurringSuggestion = true
+        }
     }
 
     func deleteTransaction(_ transaction: Transaction, modelContext: ModelContext) {
