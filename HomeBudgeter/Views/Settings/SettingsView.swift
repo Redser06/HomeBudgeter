@@ -135,6 +135,20 @@ struct SettingsView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
+
+                        Picker("Bill Reminder Lead Time", selection: Binding(
+                            get: { NotificationService.shared.reminderDays },
+                            set: { NotificationService.shared.reminderDays = $0 }
+                        )) {
+                            Text("1 day before").tag(1)
+                            Text("2 days before").tag(2)
+                            Text("3 days before").tag(3)
+                            Text("7 days before").tag(7)
+                        }
+
+                        Text("Receive a reminder before upcoming bills are due")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                 } header: {
                     Label("Notifications", systemImage: "bell")

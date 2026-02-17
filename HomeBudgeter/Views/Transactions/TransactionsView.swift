@@ -29,6 +29,23 @@ struct TransactionsView: View {
                 }
                 Spacer()
 
+                Menu {
+                    Button {
+                        exportCSV()
+                    } label: {
+                        Label("Export CSV", systemImage: "tablecells")
+                    }
+                    Button {
+                        exportPDF()
+                    } label: {
+                        Label("Export PDF", systemImage: "doc.richtext")
+                    }
+                } label: {
+                    Label("Export", systemImage: "square.and.arrow.up")
+                }
+                .menuStyle(.borderlessButton)
+                .frame(width: 80)
+
                 Button {
                     showingAddTransaction = true
                 } label: {
@@ -147,6 +164,36 @@ struct TransactionsView: View {
                     }
                 )
             }
+        }
+    }
+
+    // MARK: - Export
+
+    private func exportCSV() {
+        let transactions = viewModel.filteredTransactions
+        guard !transactions.isEmpty else { return }
+        let data = ExportService.shared.generateTransactionCSV(transactions: transactions)
+        let dateSuffix = DateFormatter.exportFileDateFormatter.string(from: Date())
+        Task {
+            _ = await ExportService.shared.saveWithPanel(
+                data: data,
+                suggestedName: "Transactions_\(dateSuffix).csv",
+                fileType: .csv
+            )
+        }
+    }
+
+    private func exportPDF() {
+        let transactions = viewModel.filteredTransactions
+        guard !transactions.isEmpty else { return }
+        let data = ExportService.shared.generateTransactionPDF(transactions: transactions)
+        let dateSuffix = DateFormatter.exportFileDateFormatter.string(from: Date())
+        Task {
+            _ = await ExportService.shared.saveWithPanel(
+                data: data,
+                suggestedName: "Transactions_\(dateSuffix).pdf",
+                fileType: .pdf
+            )
         }
     }
 

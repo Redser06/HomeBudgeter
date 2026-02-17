@@ -87,74 +87,234 @@ enum ParsingError: LocalizedError {
 // MARK: - BillType
 
 enum BillType: String, Codable, CaseIterable, Identifiable {
-    case internetTv = "Internet & TV"
-    case gasElectric = "Gas & Electric"
-    case phone = "Phone"
-    case subscription = "Subscription"
-    case insurance = "Insurance"
+    // Energy
+    case gas = "Gas"
+    case electric = "Electric"
+    case water = "Water"
+    // Communications
+    case internet = "Internet"
+    case tv = "TV"
+    case mobile = "Mobile"
+    case landline = "Landline"
+    // Subscriptions
+    case streaming = "Streaming"
+    case software = "Software"
+    // Insurance
+    case healthInsurance = "Health Insurance"
+    case homeInsurance = "Home Insurance"
+    case carInsurance = "Car Insurance"
+    // Other
     case other = "Other"
 
     var id: String { rawValue }
 
+    // MARK: - Group
+
+    enum Group: String, CaseIterable, Identifiable {
+        case energy = "Energy"
+        case communications = "Communications"
+        case subscriptions = "Subscriptions"
+        case insurance = "Insurance"
+        case other = "Other"
+
+        var id: String { rawValue }
+
+        var types: [BillType] {
+            switch self {
+            case .energy: return [.gas, .electric, .water]
+            case .communications: return [.internet, .tv, .mobile, .landline]
+            case .subscriptions: return [.streaming, .software]
+            case .insurance: return [.healthInsurance, .homeInsurance, .carInsurance]
+            case .other: return [.other]
+            }
+        }
+    }
+
+    var group: Group {
+        switch self {
+        case .gas, .electric, .water: return .energy
+        case .internet, .tv, .mobile, .landline: return .communications
+        case .streaming, .software: return .subscriptions
+        case .healthInsurance, .homeInsurance, .carInsurance: return .insurance
+        case .other: return .other
+        }
+    }
+
     var icon: String {
         switch self {
-        case .internetTv: return "wifi"
-        case .gasElectric: return "flame.fill"
-        case .phone: return "phone.fill"
-        case .subscription: return "creditcard.fill"
-        case .insurance: return "shield.fill"
+        case .gas: return "flame.fill"
+        case .electric: return "bolt.fill"
+        case .water: return "drop.fill"
+        case .internet: return "wifi"
+        case .tv: return "tv.fill"
+        case .mobile: return "iphone"
+        case .landline: return "phone.fill"
+        case .streaming: return "play.tv.fill"
+        case .software: return "app.fill"
+        case .healthInsurance: return "heart.fill"
+        case .homeInsurance: return "house.fill"
+        case .carInsurance: return "car.fill"
         case .other: return "doc.plaintext.fill"
         }
     }
 
     var color: Color {
         switch self {
-        case .internetTv: return Color(red: 59/255, green: 130/255, blue: 246/255)   // Blue
-        case .gasElectric: return Color(red: 245/255, green: 158/255, blue: 11/255)   // Amber
-        case .phone: return Color(red: 156/255, green: 39/255, blue: 176/255)         // Purple
-        case .subscription: return Color(red: 0/255, green: 188/255, blue: 212/255)   // Cyan
-        case .insurance: return Color(red: 76/255, green: 175/255, blue: 80/255)      // Green
-        case .other: return Color(red: 107/255, green: 114/255, blue: 128/255)        // Gray
+        case .gas: return Color(red: 245/255, green: 158/255, blue: 11/255)        // Amber
+        case .electric: return Color(red: 234/255, green: 179/255, blue: 8/255)    // Yellow
+        case .water: return Color(red: 6/255, green: 182/255, blue: 212/255)       // Teal
+        case .internet: return Color(red: 59/255, green: 130/255, blue: 246/255)   // Blue
+        case .tv: return Color(red: 99/255, green: 102/255, blue: 241/255)         // Indigo
+        case .mobile: return Color(red: 156/255, green: 39/255, blue: 176/255)     // Purple
+        case .landline: return Color(red: 124/255, green: 58/255, blue: 237/255)   // Violet
+        case .streaming: return Color(red: 236/255, green: 72/255, blue: 153/255)  // Pink
+        case .software: return Color(red: 0/255, green: 188/255, blue: 212/255)    // Cyan
+        case .healthInsurance: return Color(red: 239/255, green: 68/255, blue: 68/255)  // Red
+        case .homeInsurance: return Color(red: 76/255, green: 175/255, blue: 80/255)    // Green
+        case .carInsurance: return Color(red: 34/255, green: 197/255, blue: 94/255)     // Emerald
+        case .other: return Color(red: 107/255, green: 114/255, blue: 128/255)          // Gray
         }
     }
 
     var defaultCategoryType: CategoryType {
         switch self {
-        case .internetTv: return .utilities
-        case .gasElectric: return .utilities
-        case .phone: return .utilities
-        case .subscription: return .entertainment
-        case .insurance: return .personal
+        case .gas, .electric, .water: return .utilities
+        case .internet, .landline: return .utilities
+        case .tv: return .entertainment
+        case .mobile: return .utilities
+        case .streaming: return .entertainment
+        case .software: return .other
+        case .healthInsurance: return .healthcare
+        case .homeInsurance, .carInsurance: return .personal
         case .other: return .other
         }
     }
 
+    // MARK: - Legacy Mappings
+
+    /// Maps old 6-case BillType raw values to new granular types for migration.
+    static let legacyMappings: [String: [BillType]] = [
+        "Internet & TV": [.internet, .tv],
+        "Gas & Electric": [.gas, .electric],
+        "Phone": [.mobile],
+        "Subscription": [.streaming],
+        "Insurance": [.homeInsurance],
+    ]
+
+    /// All legacy raw values that should be recognized in notes tags.
+    static let legacyRawValues: Set<String> = Set(legacyMappings.keys)
+
+    /// Returns the new BillType(s) for a legacy raw value, or nil if not legacy.
+    static func fromLegacy(_ rawValue: String) -> [BillType]? {
+        legacyMappings[rawValue]
+    }
+
+    // MARK: - Inference
+
     static func infer(from vendor: String?) -> BillType {
         guard let vendor = vendor?.lowercased() else { return .other }
 
-        let gasElectricKeywords = ["esb", "electric ireland", "bord gais", "bord gáis",
-                                   "energia", "sse airtricity", "airtricity",
-                                   "flogas", "panda power", "prepaypower",
-                                   "gas networks", "electricity", "electric"]
-        let internetTvKeywords = ["virgin media", "sky", "eir broadband", "vodafone broadband",
-                                  "pure telecom", "digiweb", "imagine", "broadband",
-                                  "fibre", "internet"]
-        let phoneKeywords = ["vodafone", "three", "eir", "tesco mobile", "48",
-                             "gomo", "lycamobile", "an post mobile", "mobile"]
-        let subscriptionKeywords = ["netflix", "spotify", "disney", "amazon prime",
-                                    "apple", "google", "youtube", "subscription",
-                                    "hbo", "paramount"]
-        let insuranceKeywords = ["allianz", "axa", "aviva", "zurich", "irish life",
-                                 "laya", "vhi", "glo health", "insurance"]
+        // Gas
+        let gasKeywords = ["bord gais", "bord gáis", "flogas", "gas networks",
+                           "calor gas", "gas"]
+        // Electric
+        let electricKeywords = ["esb", "electric ireland", "energia",
+                                "sse airtricity", "airtricity", "panda power",
+                                "prepaypower", "electricity", "electric"]
+        // Water
+        let waterKeywords = ["irish water", "uisce éireann", "water charges"]
+        // Internet
+        let internetKeywords = ["virgin media", "eir broadband", "vodafone broadband",
+                                "pure telecom", "digiweb", "imagine", "broadband",
+                                "fibre", "internet"]
+        // TV
+        let tvKeywords = ["sky", "now tv", "saorview"]
+        // Mobile
+        let mobileKeywords = ["vodafone", "three", "eir mobile", "tesco mobile",
+                              "48", "gomo", "lycamobile", "an post mobile", "mobile"]
+        // Landline
+        let landlineKeywords = ["eir", "landline"]
+        // Streaming
+        let streamingKeywords = ["netflix", "spotify", "disney", "amazon prime",
+                                 "apple tv", "youtube premium", "hbo", "paramount",
+                                 "dazn", "crunchyroll"]
+        // Software
+        let softwareKeywords = ["microsoft 365", "adobe", "dropbox", "google workspace",
+                                "notion", "github", "1password", "software"]
+        // Health Insurance
+        let healthInsuranceKeywords = ["laya", "vhi", "irish life health",
+                                       "glo health", "health insurance"]
+        // Home Insurance
+        let homeInsuranceKeywords = ["allianz home", "axa home", "aviva home",
+                                     "zurich home", "home insurance"]
+        // Car Insurance
+        let carInsuranceKeywords = ["allianz car", "axa car", "aviva car",
+                                    "zurich car", "car insurance", "motor insurance",
+                                    "liberty insurance"]
+        // Generic insurance fallback
+        let insuranceKeywords = ["allianz", "axa", "aviva", "zurich", "insurance"]
 
-        if gasElectricKeywords.contains(where: { vendor.contains($0) }) { return .gasElectric }
-        if internetTvKeywords.contains(where: { vendor.contains($0) }) { return .internetTv }
-        if phoneKeywords.contains(where: { vendor.contains($0) }) { return .phone }
-        if subscriptionKeywords.contains(where: { vendor.contains($0) }) { return .subscription }
-        if insuranceKeywords.contains(where: { vendor.contains($0) }) { return .insurance }
+        if electricKeywords.contains(where: { vendor.contains($0) }) { return .electric }
+        if gasKeywords.contains(where: { vendor.contains($0) }) { return .gas }
+        if waterKeywords.contains(where: { vendor.contains($0) }) { return .water }
+        if internetKeywords.contains(where: { vendor.contains($0) }) { return .internet }
+        if tvKeywords.contains(where: { vendor.contains($0) }) { return .tv }
+        if mobileKeywords.contains(where: { vendor.contains($0) }) { return .mobile }
+        if landlineKeywords.contains(where: { vendor.contains($0) }) { return .landline }
+        if streamingKeywords.contains(where: { vendor.contains($0) }) { return .streaming }
+        if softwareKeywords.contains(where: { vendor.contains($0) }) { return .software }
+        if healthInsuranceKeywords.contains(where: { vendor.contains($0) }) { return .healthInsurance }
+        if homeInsuranceKeywords.contains(where: { vendor.contains($0) }) { return .homeInsurance }
+        if carInsuranceKeywords.contains(where: { vendor.contains($0) }) { return .carInsurance }
+        if insuranceKeywords.contains(where: { vendor.contains($0) }) { return .homeInsurance }
 
         return .other
     }
+
+    /// Infer all applicable bill types for a multi-service vendor (e.g., "Bord Gáis" may be gas + electric).
+    static func inferAll(from vendor: String?) -> [BillType] {
+        guard let vendor = vendor?.lowercased() else { return [.other] }
+
+        var types: [BillType] = []
+
+        let mappings: [(keywords: [String], type: BillType)] = [
+            (["esb", "electric ireland", "energia", "sse airtricity", "airtricity",
+              "panda power", "prepaypower", "electricity", "electric"], .electric),
+            (["bord gais", "bord gáis", "flogas", "gas networks", "calor gas", "gas"], .gas),
+            (["irish water", "uisce éireann", "water charges"], .water),
+            (["virgin media", "eir broadband", "vodafone broadband", "pure telecom",
+              "digiweb", "imagine", "broadband", "fibre", "internet"], .internet),
+            (["sky", "now tv", "saorview"], .tv),
+            (["vodafone", "three", "eir mobile", "tesco mobile", "48",
+              "gomo", "lycamobile", "an post mobile", "mobile"], .mobile),
+            (["eir landline", "landline"], .landline),
+            (["netflix", "spotify", "disney", "amazon prime", "apple tv",
+              "youtube premium", "hbo", "paramount", "dazn", "crunchyroll"], .streaming),
+            (["microsoft 365", "adobe", "dropbox", "google workspace",
+              "notion", "github", "1password", "software"], .software),
+            (["laya", "vhi", "irish life health", "glo health", "health insurance"], .healthInsurance),
+            (["allianz home", "axa home", "aviva home", "zurich home", "home insurance"], .homeInsurance),
+            (["allianz car", "axa car", "aviva car", "zurich car",
+              "car insurance", "motor insurance", "liberty insurance"], .carInsurance),
+        ]
+
+        for (keywords, type) in mappings {
+            if keywords.contains(where: { vendor.contains($0) }) {
+                types.append(type)
+            }
+        }
+
+        return types.isEmpty ? [.other] : types
+    }
+}
+
+// MARK: - ParsedBillLineItem
+
+/// A single line item from AI-parsed bill data.
+struct ParsedBillLineItem: Codable {
+    let billType: String?
+    let amount: String?
+    let label: String?
 }
 
 // MARK: - ParsedBillData
@@ -174,6 +334,7 @@ struct ParsedBillData: Codable {
     let billType: String?
     let suggestedCategory: String?
     let confidence: Double?
+    let lineItems: [ParsedBillLineItem]?
 
     static func toDecimal(_ value: String?) -> Decimal {
         guard let v = value else { return 0 }
@@ -192,7 +353,24 @@ struct ParsedBillData: Codable {
            let type = BillType.allCases.first(where: { $0.rawValue == typeString }) {
             return type
         }
+        // Check legacy mappings
+        if let typeString = billType,
+           let legacyTypes = BillType.fromLegacy(typeString) {
+            return legacyTypes.first ?? .other
+        }
         return BillType.infer(from: vendor)
+    }
+
+    /// Returns all resolved bill types — from line items if present, otherwise single type.
+    var resolvedBillTypes: [BillType] {
+        if let items = lineItems, !items.isEmpty {
+            return items.compactMap { item in
+                guard let typeString = item.billType else { return nil }
+                return BillType.allCases.first(where: { $0.rawValue == typeString })
+                    ?? BillType.fromLegacy(typeString)?.first
+            }
+        }
+        return [resolvedBillType]
     }
 
     var resolvedCategoryType: CategoryType {
@@ -331,9 +509,16 @@ final class PayslipParsingService {
         This is an Irish billing context. Common providers include:
         - Electricity: ESB, Electric Ireland, Energia, SSE Airtricity, PrePayPower
         - Gas: Bord Gáis Energy, Flogas
-        - Internet/TV: Virgin Media, Sky Ireland, Eir, Vodafone, Three, Pure Telecom
-        - Phone: Vodafone, Three, Eir, Tesco Mobile, GoMo, 48
-        - Insurance: Allianz, AXA, Aviva, Zurich, Laya, VHI
+        - Water: Irish Water / Uisce Éireann
+        - Internet: Virgin Media, Eir, Vodafone, Pure Telecom, Digiweb
+        - TV: Sky Ireland, Now TV
+        - Mobile: Vodafone, Three, Eir, Tesco Mobile, GoMo, 48
+        - Landline: Eir
+        - Streaming: Netflix, Spotify, Disney+, Amazon Prime, Apple TV+
+        - Software: Microsoft 365, Adobe, Dropbox
+        - Health Insurance: Laya, VHI, Irish Life Health
+        - Home Insurance: Allianz, AXA, Aviva, Zurich
+        - Car Insurance: Allianz, AXA, Aviva, Liberty Insurance
 
         Look for:
         - Provider/vendor name, typically at the top of the bill -> vendor
@@ -346,17 +531,30 @@ final class PayslipParsingService {
         - "Account Number" or "Account No" or "Customer Number" -> accountNumber
 
         For billType, classify as one of these exact strings:
-        - "Internet & TV" — broadband, fibre, TV packages
-        - "Gas & Electric" — gas or electricity bills
-        - "Phone" — mobile or landline plans
-        - "Subscription" — streaming, software, memberships
-        - "Insurance" — health, home, car, life insurance
+        - "Gas" — gas supply
+        - "Electric" — electricity supply
+        - "Water" — water charges
+        - "Internet" — broadband, fibre
+        - "TV" — TV packages, satellite
+        - "Mobile" — mobile phone plans
+        - "Landline" — fixed-line phone
+        - "Streaming" — Netflix, Spotify, streaming services
+        - "Software" — software subscriptions
+        - "Health Insurance" — health/medical insurance
+        - "Home Insurance" — home/property insurance
+        - "Car Insurance" — car/motor insurance
         - "Other" — anything else
+
+        IMPORTANT: If a single bill covers multiple services (e.g. a Bord Gáis bill with \
+        both gas and electric charges, or a Virgin Media bill with internet and TV), you MUST \
+        populate the "lineItems" array with separate entries for each service. Each line item \
+        should have its own billType and amount. The sum of line item amounts should equal totalAmount.
 
         For suggestedCategory, map to one of these exact strings:
         - "Utilities" — gas, electric, water, broadband, phone
         - "Entertainment" — TV, streaming, subscriptions
-        - "Personal" — insurance, personal services
+        - "Healthcare" — health insurance
+        - "Personal" — home insurance, car insurance
         - "Other" — anything else
 
         All monetary values must be numbers as strings with exactly 2 decimal places \
@@ -382,7 +580,14 @@ final class PayslipParsingService {
           "accountNumber": "string" | null,
           "billType": "string" | null,
           "suggestedCategory": "string" | null,
-          "confidence": 0.0
+          "confidence": 0.0,
+          "lineItems": [
+            {
+              "billType": "string",
+              "amount": "0.00",
+              "label": "string" | null
+            }
+          ] | null
         }
 
         --- BILL TEXT ---

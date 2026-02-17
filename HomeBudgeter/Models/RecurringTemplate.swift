@@ -26,6 +26,9 @@ final class RecurringTemplate {
     var createdAt: Date
     var updatedAt: Date
 
+    // Price history for tracking increases (JSON-encoded)
+    var priceHistoryData: Data?
+
     // Relationships
     var category: BudgetCategory?
     var account: Account?
@@ -92,5 +95,53 @@ final class RecurringTemplate {
         case .quarterly: return amount / 3
         case .yearly: return amount / 12
         }
+    }
+
+    // MARK: - Price History
+
+    struct PriceEntry: Codable {
+        let date: Date
+        let amount: String // Stored as string for Decimal precision
+    }
+
+    var priceHistory: [PriceEntry] {
+        get {
+            guard let data = priceHistoryData else { return [] }
+            return (try? JSONDecoder().decode([PriceEntry].self, from: data)) ?? []
+        }
+        set {
+            priceHistoryData = try? JSONEncoder().encode(newValue)
+        }
+    }
+
+    func recordPrice(_ amount: Decimal, date: Date = Date()) {
+        var history = priceHistory
+        history.append(PriceEntry(date: date, amount: "\(amount)"))
+        priceHistory = history
+    }
+
+    /// Returns true if the last 2-3 recorded prices show a sustained increase (> 5% cumulative).
+    var hasPriceIncrease: Bool {
+        let history = priceHistory
+        guard history.count >= 2 else { return false }
+
+        let recent = Array(history.suffix(3))
+        guard let firstAmount = Decimal(string: recent.first!.amount),
+              let lastAmount = Decimal(string: recent.last!.amount),
+              firstAmount > 0 else { return false }
+
+        let change = (lastAmount - firstAmount) / firstAmount
+        return change > Decimal(string: "0.05")!
+    }
+
+    /// The percentage increase from first to last recorded price.
+    var priceIncreasePercentage: Double? {
+        let history = priceHistory
+        guard history.count >= 2,
+              let first = Decimal(string: history.first!.amount),
+              let last = Decimal(string: history.last!.amount),
+              first > 0 else { return nil }
+
+        return Double(truncating: ((last - first) / first) as NSNumber) * 100
     }
 }

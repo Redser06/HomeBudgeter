@@ -33,13 +33,22 @@ final class RecurringTransactionService {
                 }
 
                 // Create child transaction
+                var transactionNotes = template.notes
+                if template.isVariableAmount {
+                    if let existing = transactionNotes {
+                        transactionNotes = existing + " [Estimate]"
+                    } else {
+                        transactionNotes = "[Estimate]"
+                    }
+                }
+
                 let transaction = Transaction(
                     amount: template.amount,
                     date: template.nextDueDate,
                     descriptionText: template.name,
                     type: template.type,
                     isRecurring: false,
-                    notes: template.notes,
+                    notes: transactionNotes,
                     category: template.category,
                     account: template.account
                 )

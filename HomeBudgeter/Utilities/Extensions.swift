@@ -43,6 +43,16 @@ extension Date {
     }
 }
 
+// MARK: - DateFormatter Extensions
+
+extension DateFormatter {
+    static let exportFileDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+}
+
 // MARK: - Decimal Extensions
 
 extension Decimal {

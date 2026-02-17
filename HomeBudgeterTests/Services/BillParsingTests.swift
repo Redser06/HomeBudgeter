@@ -69,9 +69,10 @@ final class BillParsingTests: XCTestCase {
             "subtotalAmount": "53.65",
             "taxAmount": "12.34",
             "accountNumber": "VM-12345678",
-            "billType": "Internet & TV",
+            "billType": "Internet",
             "suggestedCategory": "Utilities",
-            "confidence": 0.92
+            "confidence": 0.92,
+            "lineItems": null
         }
         """
         let data = json.data(using: .utf8)!
@@ -100,7 +101,8 @@ final class BillParsingTests: XCTestCase {
             "accountNumber": null,
             "billType": null,
             "suggestedCategory": null,
-            "confidence": 0.65
+            "confidence": 0.65,
+            "lineItems": null
         }
         """
         let data = json.data(using: .utf8)!
@@ -115,64 +117,145 @@ final class BillParsingTests: XCTestCase {
         XCTAssertEqual(ParsedBillData.toDecimal(parsed.subtotalAmount), 0)
     }
 
-    // MARK: - BillType
+    func test_parsedBillData_decodesLineItems() throws {
+        let json = """
+        {
+            "vendor": "Bord Gáis Energy",
+            "totalAmount": "180.00",
+            "billType": "Gas",
+            "confidence": 0.9,
+            "lineItems": [
+                { "billType": "Gas", "amount": "100.00", "label": "Gas Supply" },
+                { "billType": "Electric", "amount": "80.00", "label": "Electricity" }
+            ]
+        }
+        """
+        let data = json.data(using: .utf8)!
+        let parsed = try JSONDecoder().decode(ParsedBillData.self, from: data)
+
+        XCTAssertNotNil(parsed.lineItems)
+        XCTAssertEqual(parsed.lineItems?.count, 2)
+        XCTAssertEqual(parsed.lineItems?[0].billType, "Gas")
+        XCTAssertEqual(parsed.lineItems?[0].amount, "100.00")
+        XCTAssertEqual(parsed.lineItems?[0].label, "Gas Supply")
+        XCTAssertEqual(parsed.lineItems?[1].billType, "Electric")
+        XCTAssertEqual(parsed.lineItems?[1].amount, "80.00")
+    }
+
+    // MARK: - BillType (13 cases)
 
     func test_billType_allCases() {
         let cases = BillType.allCases
-        XCTAssertEqual(cases.count, 6)
-        XCTAssertTrue(cases.contains(.internetTv))
-        XCTAssertTrue(cases.contains(.gasElectric))
-        XCTAssertTrue(cases.contains(.phone))
-        XCTAssertTrue(cases.contains(.subscription))
-        XCTAssertTrue(cases.contains(.insurance))
+        XCTAssertEqual(cases.count, 13)
+        XCTAssertTrue(cases.contains(.gas))
+        XCTAssertTrue(cases.contains(.electric))
+        XCTAssertTrue(cases.contains(.water))
+        XCTAssertTrue(cases.contains(.internet))
+        XCTAssertTrue(cases.contains(.tv))
+        XCTAssertTrue(cases.contains(.mobile))
+        XCTAssertTrue(cases.contains(.landline))
+        XCTAssertTrue(cases.contains(.streaming))
+        XCTAssertTrue(cases.contains(.software))
+        XCTAssertTrue(cases.contains(.healthInsurance))
+        XCTAssertTrue(cases.contains(.homeInsurance))
+        XCTAssertTrue(cases.contains(.carInsurance))
         XCTAssertTrue(cases.contains(.other))
     }
 
+    func test_billType_groups() {
+        XCTAssertEqual(BillType.Group.allCases.count, 5)
+        XCTAssertEqual(BillType.gas.group, .energy)
+        XCTAssertEqual(BillType.electric.group, .energy)
+        XCTAssertEqual(BillType.water.group, .energy)
+        XCTAssertEqual(BillType.internet.group, .communications)
+        XCTAssertEqual(BillType.tv.group, .communications)
+        XCTAssertEqual(BillType.mobile.group, .communications)
+        XCTAssertEqual(BillType.landline.group, .communications)
+        XCTAssertEqual(BillType.streaming.group, .subscriptions)
+        XCTAssertEqual(BillType.software.group, .subscriptions)
+        XCTAssertEqual(BillType.healthInsurance.group, .insurance)
+        XCTAssertEqual(BillType.homeInsurance.group, .insurance)
+        XCTAssertEqual(BillType.carInsurance.group, .insurance)
+        XCTAssertEqual(BillType.other.group, .other)
+    }
+
     func test_billType_defaultCategoryType() {
-        XCTAssertEqual(BillType.internetTv.defaultCategoryType, .utilities)
-        XCTAssertEqual(BillType.gasElectric.defaultCategoryType, .utilities)
-        XCTAssertEqual(BillType.phone.defaultCategoryType, .utilities)
-        XCTAssertEqual(BillType.subscription.defaultCategoryType, .entertainment)
-        XCTAssertEqual(BillType.insurance.defaultCategoryType, .personal)
+        XCTAssertEqual(BillType.gas.defaultCategoryType, .utilities)
+        XCTAssertEqual(BillType.electric.defaultCategoryType, .utilities)
+        XCTAssertEqual(BillType.water.defaultCategoryType, .utilities)
+        XCTAssertEqual(BillType.internet.defaultCategoryType, .utilities)
+        XCTAssertEqual(BillType.tv.defaultCategoryType, .entertainment)
+        XCTAssertEqual(BillType.mobile.defaultCategoryType, .utilities)
+        XCTAssertEqual(BillType.landline.defaultCategoryType, .utilities)
+        XCTAssertEqual(BillType.streaming.defaultCategoryType, .entertainment)
+        XCTAssertEqual(BillType.software.defaultCategoryType, .other)
+        XCTAssertEqual(BillType.healthInsurance.defaultCategoryType, .healthcare)
+        XCTAssertEqual(BillType.homeInsurance.defaultCategoryType, .personal)
+        XCTAssertEqual(BillType.carInsurance.defaultCategoryType, .personal)
         XCTAssertEqual(BillType.other.defaultCategoryType, .other)
     }
 
     // MARK: - BillType.infer(from:)
 
-    func test_infer_esb_returnsGasElectric() {
-        XCTAssertEqual(BillType.infer(from: "ESB Networks"), .gasElectric)
+    func test_infer_esb_returnsElectric() {
+        XCTAssertEqual(BillType.infer(from: "ESB Networks"), .electric)
     }
 
-    func test_infer_bordGais_returnsGasElectric() {
-        XCTAssertEqual(BillType.infer(from: "Bord Gáis Energy"), .gasElectric)
+    func test_infer_electricIreland_returnsElectric() {
+        XCTAssertEqual(BillType.infer(from: "Electric Ireland"), .electric)
     }
 
-    func test_infer_virginMedia_returnsInternetTv() {
-        XCTAssertEqual(BillType.infer(from: "Virgin Media Ireland"), .internetTv)
+    func test_infer_bordGais_returnsGas() {
+        XCTAssertEqual(BillType.infer(from: "Bord Gáis Energy"), .gas)
     }
 
-    func test_infer_sky_returnsInternetTv() {
-        XCTAssertEqual(BillType.infer(from: "Sky Ireland"), .internetTv)
+    func test_infer_flogas_returnsGas() {
+        XCTAssertEqual(BillType.infer(from: "Flogas Natural Gas"), .gas)
     }
 
-    func test_infer_vodafone_returnsPhone() {
-        XCTAssertEqual(BillType.infer(from: "Vodafone Ireland"), .phone)
+    func test_infer_irishWater_returnsWater() {
+        XCTAssertEqual(BillType.infer(from: "Irish Water"), .water)
     }
 
-    func test_infer_three_returnsPhone() {
-        XCTAssertEqual(BillType.infer(from: "Three Ireland"), .phone)
+    func test_infer_virginMedia_returnsInternet() {
+        XCTAssertEqual(BillType.infer(from: "Virgin Media Ireland"), .internet)
     }
 
-    func test_infer_netflix_returnsSubscription() {
-        XCTAssertEqual(BillType.infer(from: "Netflix"), .subscription)
+    func test_infer_sky_returnsTV() {
+        XCTAssertEqual(BillType.infer(from: "Sky Ireland"), .tv)
     }
 
-    func test_infer_spotify_returnsSubscription() {
-        XCTAssertEqual(BillType.infer(from: "Spotify Premium"), .subscription)
+    func test_infer_vodafone_returnsMobile() {
+        XCTAssertEqual(BillType.infer(from: "Vodafone Ireland"), .mobile)
     }
 
-    func test_infer_aviva_returnsInsurance() {
-        XCTAssertEqual(BillType.infer(from: "Aviva Insurance"), .insurance)
+    func test_infer_three_returnsMobile() {
+        XCTAssertEqual(BillType.infer(from: "Three Ireland"), .mobile)
+    }
+
+    func test_infer_netflix_returnsStreaming() {
+        XCTAssertEqual(BillType.infer(from: "Netflix"), .streaming)
+    }
+
+    func test_infer_spotify_returnsStreaming() {
+        XCTAssertEqual(BillType.infer(from: "Spotify Premium"), .streaming)
+    }
+
+    func test_infer_microsoft365_returnsSoftware() {
+        XCTAssertEqual(BillType.infer(from: "Microsoft 365"), .software)
+    }
+
+    func test_infer_laya_returnsHealthInsurance() {
+        XCTAssertEqual(BillType.infer(from: "Laya Healthcare"), .healthInsurance)
+    }
+
+    func test_infer_vhi_returnsHealthInsurance() {
+        XCTAssertEqual(BillType.infer(from: "VHI Healthcare"), .healthInsurance)
+    }
+
+    func test_infer_allianz_returnsHomeInsurance() {
+        // Generic "allianz" maps to homeInsurance as default insurance
+        XCTAssertEqual(BillType.infer(from: "Allianz Insurance"), .homeInsurance)
     }
 
     func test_infer_unknown_returnsOther() {
@@ -183,20 +266,89 @@ final class BillParsingTests: XCTestCase {
         XCTAssertEqual(BillType.infer(from: nil), .other)
     }
 
+    // MARK: - BillType.inferAll(from:)
+
+    func test_inferAll_multiService_returnsMultipleTypes() {
+        // "Bord Gáis" should match gas
+        let types = BillType.inferAll(from: "Bord Gáis Energy")
+        XCTAssertTrue(types.contains(.gas))
+    }
+
+    func test_inferAll_unknown_returnsOther() {
+        let types = BillType.inferAll(from: "Some Company")
+        XCTAssertEqual(types, [.other])
+    }
+
+    func test_inferAll_nil_returnsOther() {
+        let types = BillType.inferAll(from: nil)
+        XCTAssertEqual(types, [.other])
+    }
+
+    // MARK: - Legacy Mappings
+
+    func test_legacyMappings_gasElectric() {
+        let mapped = BillType.fromLegacy("Gas & Electric")
+        XCTAssertNotNil(mapped)
+        XCTAssertEqual(mapped, [.gas, .electric])
+    }
+
+    func test_legacyMappings_internetTv() {
+        let mapped = BillType.fromLegacy("Internet & TV")
+        XCTAssertNotNil(mapped)
+        XCTAssertEqual(mapped, [.internet, .tv])
+    }
+
+    func test_legacyMappings_phone() {
+        let mapped = BillType.fromLegacy("Phone")
+        XCTAssertNotNil(mapped)
+        XCTAssertEqual(mapped, [.mobile])
+    }
+
+    func test_legacyMappings_subscription() {
+        let mapped = BillType.fromLegacy("Subscription")
+        XCTAssertNotNil(mapped)
+        XCTAssertEqual(mapped, [.streaming])
+    }
+
+    func test_legacyMappings_insurance() {
+        let mapped = BillType.fromLegacy("Insurance")
+        XCTAssertNotNil(mapped)
+        XCTAssertEqual(mapped, [.homeInsurance])
+    }
+
+    func test_legacyMappings_unknown_returnsNil() {
+        XCTAssertNil(BillType.fromLegacy("Gas"))
+    }
+
     // MARK: - resolvedBillType
 
-    func test_resolvedBillType_withExplicitType_usesExplicit() throws {
+    func test_resolvedBillType_withNewType_usesExplicit() throws {
         let json = """
         {
             "vendor": "Some Company",
             "totalAmount": "50.00",
-            "billType": "Phone",
+            "billType": "Mobile",
             "confidence": 0.9
         }
         """
         let data = json.data(using: .utf8)!
         let parsed = try JSONDecoder().decode(ParsedBillData.self, from: data)
-        XCTAssertEqual(parsed.resolvedBillType, .phone)
+        XCTAssertEqual(parsed.resolvedBillType, .mobile)
+    }
+
+    func test_resolvedBillType_withLegacyType_mapsToNew() throws {
+        let json = """
+        {
+            "vendor": "Some Company",
+            "totalAmount": "50.00",
+            "billType": "Gas & Electric",
+            "confidence": 0.9
+        }
+        """
+        let data = json.data(using: .utf8)!
+        let parsed = try JSONDecoder().decode(ParsedBillData.self, from: data)
+        // Legacy "Gas & Electric" maps to [.gas, .electric], resolvedBillType returns first
+        XCTAssertEqual(parsed.resolvedBillType, .gas)
     }
 
     func test_resolvedBillType_withNullType_infersFromVendor() throws {
@@ -210,7 +362,41 @@ final class BillParsingTests: XCTestCase {
         """
         let data = json.data(using: .utf8)!
         let parsed = try JSONDecoder().decode(ParsedBillData.self, from: data)
-        XCTAssertEqual(parsed.resolvedBillType, .subscription)
+        XCTAssertEqual(parsed.resolvedBillType, .streaming)
+    }
+
+    // MARK: - resolvedBillTypes (plural)
+
+    func test_resolvedBillTypes_withLineItems_returnsAll() throws {
+        let json = """
+        {
+            "vendor": "Bord Gáis",
+            "totalAmount": "200.00",
+            "billType": "Gas",
+            "confidence": 0.9,
+            "lineItems": [
+                { "billType": "Gas", "amount": "120.00", "label": null },
+                { "billType": "Electric", "amount": "80.00", "label": null }
+            ]
+        }
+        """
+        let data = json.data(using: .utf8)!
+        let parsed = try JSONDecoder().decode(ParsedBillData.self, from: data)
+        XCTAssertEqual(parsed.resolvedBillTypes, [.gas, .electric])
+    }
+
+    func test_resolvedBillTypes_withoutLineItems_returnsSingleType() throws {
+        let json = """
+        {
+            "vendor": "ESB",
+            "totalAmount": "80.00",
+            "billType": "Electric",
+            "confidence": 0.9
+        }
+        """
+        let data = json.data(using: .utf8)!
+        let parsed = try JSONDecoder().decode(ParsedBillData.self, from: data)
+        XCTAssertEqual(parsed.resolvedBillTypes, [.electric])
     }
 
     // MARK: - resolvedCategoryType
@@ -241,7 +427,7 @@ final class BillParsingTests: XCTestCase {
         """
         let data = json.data(using: .utf8)!
         let parsed = try JSONDecoder().decode(ParsedBillData.self, from: data)
-        // ESB infers to gasElectric -> defaultCategoryType is utilities
+        // ESB infers to electric -> defaultCategoryType is utilities
         XCTAssertEqual(parsed.resolvedCategoryType, .utilities)
     }
 }

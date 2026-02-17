@@ -19,7 +19,8 @@ final class BudgetCategoryTests: XCTestCase {
         let schema = Schema([
             Transaction.self, BudgetCategory.self, Account.self,
             Document.self, SavingsGoal.self, Payslip.self, PensionData.self,
-            RecurringTemplate.self
+            RecurringTemplate.self,
+            BillLineItem.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         do {

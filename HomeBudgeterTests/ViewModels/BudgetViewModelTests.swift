@@ -27,7 +27,8 @@ final class BudgetViewModelTests: XCTestCase {
             SavingsGoal.self,
             Payslip.self,
             PensionData.self,
-            RecurringTemplate.self
+            RecurringTemplate.self,
+            BillLineItem.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
 

@@ -23,6 +23,51 @@ class BillsViewModel {
     var parsedData: ParsedBillData?
     var isParsing: Bool = false
     var parsingError: String?
+    var detectedRecurring: RecurringBillDetector.DetectionResult?
+    var showingRecurringSuggestion: Bool = false
+
+    // MARK: - Bill Type Extraction
+
+    /// Extracts all BillType tags from a transaction's notes, supporting both new and legacy tags.
+    static func extractBillTypes(from notes: String?) -> [BillType] {
+        guard let notes = notes else { return [] }
+        var types: [BillType] = []
+
+        // Match new tags
+        for type in BillType.allCases {
+            if notes.contains("[\(type.rawValue)]") {
+                types.append(type)
+            }
+        }
+
+        // Match legacy tags and map to new types
+        for (legacyRaw, mappedTypes) in BillType.legacyMappings {
+            if notes.contains("[\(legacyRaw)]") {
+                for mapped in mappedTypes where !types.contains(mapped) {
+                    types.append(mapped)
+                }
+            }
+        }
+
+        return types
+    }
+
+    /// Returns true if notes contain any bill type tag (new or legacy).
+    static func hasBillTag(_ notes: String?) -> Bool {
+        guard let notes = notes else { return false }
+
+        // Check new tags
+        if BillType.allCases.contains(where: { notes.contains("[\($0.rawValue)]") }) {
+            return true
+        }
+
+        // Check legacy tags
+        if BillType.legacyRawValues.contains(where: { notes.contains("[\($0)]") }) {
+            return true
+        }
+
+        return false
+    }
 
     // MARK: - Computed Properties
 
@@ -35,7 +80,15 @@ class BillsViewModel {
         if let billType = filterBillType {
             result = result.filter { transaction in
                 guard let notes = transaction.notes else { return false }
-                return notes.contains("[\(billType.rawValue)]")
+                // Direct match
+                if notes.contains("[\(billType.rawValue)]") { return true }
+                // Legacy match: if filtering by .gas, also match [Gas & Electric]
+                for (legacyRaw, mappedTypes) in BillType.legacyMappings {
+                    if mappedTypes.contains(billType) && notes.contains("[\(legacyRaw)]") {
+                        return true
+                    }
+                }
+                return false
             }
         }
 
@@ -72,7 +125,8 @@ class BillsViewModel {
     }
 
     var availableYears: [Int] {
-        let years = Set(bills.map { Calendar.current.component(.year, from: $0.date) })
+        var years = Set(bills.map { Calendar.current.component(.year, from: $0.date) })
+        years.insert(filterYear)
         return years.sorted().reversed()
     }
 
@@ -94,6 +148,7 @@ class BillsViewModel {
 
     // MARK: - Data Methods
 
+    @MainActor
     func loadBills(modelContext: ModelContext) {
         // Bills are identified by their [BillType] tag in notes, not solely by linked documents.
         // This ensures both manually-added and document-uploaded bills appear in the list.
@@ -107,8 +162,7 @@ class BillsViewModel {
         do {
             let all = try modelContext.fetch(descriptor)
             bills = all.filter { transaction in
-                guard let notes = transaction.notes else { return false }
-                return BillType.allCases.contains(where: { notes.contains("[\($0.rawValue)]") })
+                Self.hasBillTag(transaction.notes)
             }
         } catch {
             print("Error loading bills: \(error)")
@@ -211,6 +265,9 @@ class BillsViewModel {
 
     // MARK: - Create Bill Transaction
 
+    /// Creates a bill transaction with optional line items.
+    /// If lineItems is non-empty, multi-tag notes and BillLineItem records are created.
+    @MainActor
     func createBillTransaction(
         amount: Decimal,
         date: Date,
@@ -221,6 +278,7 @@ class BillsViewModel {
         dueDate: Date?,
         isRecurring: Bool,
         recurringFrequency: RecurringFrequency?,
+        lineItems: [(billType: BillType, amount: Decimal, label: String?)] = [],
         modelContext: ModelContext
     ) {
         // Find matching BudgetCategory
@@ -228,8 +286,16 @@ class BillsViewModel {
         let categories = (try? modelContext.fetch(categoryDescriptor)) ?? []
         let matchingCategory = categories.first(where: { $0.type == categoryType })
 
-        // Build notes with bill type tag for filtering
-        var billNotes = "[\(billType.rawValue)]"
+        // Build notes with bill type tag(s) for filtering
+        var billNotes: String
+        if lineItems.isEmpty {
+            billNotes = "[\(billType.rawValue)]"
+        } else {
+            // Multi-tag: [Gas][Electric]
+            let tags = lineItems.map { "[\($0.billType.rawValue)]" }
+            billNotes = tags.joined()
+        }
+
         if let dueDate = dueDate {
             let formatter = DateFormatter()
             formatter.dateStyle = .medium
@@ -252,6 +318,28 @@ class BillsViewModel {
 
         modelContext.insert(transaction)
 
+        // Create BillLineItem records
+        if !lineItems.isEmpty {
+            for item in lineItems {
+                let lineItem = BillLineItem(
+                    billType: item.billType,
+                    amount: item.amount,
+                    label: item.label,
+                    transaction: transaction
+                )
+                modelContext.insert(lineItem)
+            }
+        } else {
+            // Single line item for consistency
+            let lineItem = BillLineItem(
+                billType: billType,
+                amount: amount,
+                label: nil,
+                transaction: transaction
+            )
+            modelContext.insert(lineItem)
+        }
+
         // Link uploaded document
         if let doc = importedDocument {
             transaction.linkedDocument = doc
@@ -260,8 +348,15 @@ class BillsViewModel {
 
         try? modelContext.save()
         loadBills(modelContext: modelContext)
+
+        // Auto-detect recurring pattern for this vendor
+        if let result = RecurringBillDetector.shared.detectRecurringPattern(for: vendor, modelContext: modelContext) {
+            detectedRecurring = result
+            showingRecurringSuggestion = true
+        }
     }
 
+    @MainActor
     func deleteBill(_ bill: Transaction, modelContext: ModelContext) {
         // Also remove linked document if present
         if let doc = bill.linkedDocument {

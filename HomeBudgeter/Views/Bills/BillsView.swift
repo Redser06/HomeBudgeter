@@ -12,6 +12,7 @@ import UniformTypeIdentifiers
 struct BillsView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel = BillsViewModel()
+    @State private var recurringViewModel = RecurringViewModel()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -75,27 +76,45 @@ struct BillsView: View {
             // Filters
             HStack(spacing: 16) {
                 Picker("Year", selection: $viewModel.filterYear) {
-                    if viewModel.availableYears.isEmpty {
-                        Text(String(viewModel.filterYear)).tag(viewModel.filterYear)
-                    } else {
-                        ForEach(viewModel.availableYears, id: \.self) { year in
-                            Text(String(year)).tag(year)
-                        }
+                    ForEach(viewModel.availableYears, id: \.self) { year in
+                        Text(String(year)).tag(year)
                     }
                 }
                 .frame(width: 120)
 
-                Picker("Bill Type", selection: Binding(
-                    get: { viewModel.filterBillType?.rawValue ?? "" },
-                    set: { viewModel.filterBillType = $0.isEmpty ? nil : BillType(rawValue: $0) }
-                )) {
-                    Text("All Types").tag("")
-                    ForEach(BillType.allCases) { billType in
-                        Label(billType.rawValue, systemImage: billType.icon)
-                            .tag(billType.rawValue)
+                // Grouped bill type filter
+                Menu {
+                    Button("All Types") {
+                        viewModel.filterBillType = nil
                     }
+                    Divider()
+                    ForEach(BillType.Group.allCases) { group in
+                        Section(group.rawValue) {
+                            ForEach(group.types) { type in
+                                Button {
+                                    viewModel.filterBillType = type
+                                } label: {
+                                    Label(type.rawValue, systemImage: type.icon)
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        if let selected = viewModel.filterBillType {
+                            Image(systemName: selected.icon)
+                            Text(selected.rawValue)
+                        } else {
+                            Text("All Types")
+                        }
+                        Image(systemName: "chevron.down")
+                            .font(.caption)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color(.controlBackgroundColor))
+                    .cornerRadius(8)
                 }
-                .frame(width: 200)
 
                 Spacer()
 
@@ -146,8 +165,18 @@ struct BillsView: View {
         .sheet(isPresented: $viewModel.showingCreateSheet) {
             AddBillSheet(viewModel: viewModel, modelContext: modelContext)
         }
+        .onChange(of: viewModel.showingCreateSheet) { _, isShowing in
+            if !isShowing {
+                viewModel.loadBills(modelContext: modelContext)
+            }
+        }
         .sheet(item: $viewModel.selectedBill) { bill in
             BillDetailSheet(viewModel: viewModel, bill: bill, modelContext: modelContext)
+        }
+        .onChange(of: viewModel.selectedBill) { _, selected in
+            if selected == nil {
+                viewModel.loadBills(modelContext: modelContext)
+            }
         }
         .fileImporter(
             isPresented: $viewModel.showingFileImporter,
@@ -172,6 +201,18 @@ struct BillsView: View {
             Button("OK") { viewModel.importError = nil }
         } message: {
             Text(viewModel.importError ?? "An unknown error occurred")
+        }
+        .sheet(isPresented: $viewModel.showingRecurringSuggestion) {
+            if let result = viewModel.detectedRecurring {
+                RecurringSuggestionSheet(
+                    result: result,
+                    recurringViewModel: recurringViewModel,
+                    modelContext: modelContext,
+                    onDismiss: {
+                        viewModel.detectedRecurring = nil
+                    }
+                )
+            }
         }
     }
 }
@@ -220,23 +261,22 @@ struct BillRow: View {
     let bill: Transaction
     let onTap: () -> Void
 
-    private var billType: BillType {
-        guard let notes = bill.notes else { return .other }
-        for type in BillType.allCases {
-            if notes.contains("[\(type.rawValue)]") {
-                return type
-            }
-        }
-        return .other
+    private var billTypes: [BillType] {
+        let types = BillsViewModel.extractBillTypes(from: bill.notes)
+        return types.isEmpty ? [.other] : types
+    }
+
+    private var primaryType: BillType {
+        billTypes.first ?? .other
     }
 
     var body: some View {
         HStack(spacing: 16) {
-            Image(systemName: billType.icon)
+            Image(systemName: primaryType.icon)
                 .font(.title2)
                 .foregroundColor(.white)
                 .frame(width: 44, height: 44)
-                .background(billType.color)
+                .background(primaryType.color)
                 .cornerRadius(10)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -244,13 +284,26 @@ struct BillRow: View {
                     Text(bill.descriptionText)
                         .font(.headline)
 
-                    Text(billType.rawValue)
-                        .font(.caption2)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(billType.color.opacity(0.15))
-                        .foregroundColor(billType.color)
-                        .cornerRadius(4)
+                    ForEach(billTypes) { type in
+                        Text(type.rawValue)
+                            .font(.caption2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(type.color.opacity(0.15))
+                            .foregroundColor(type.color)
+                            .cornerRadius(4)
+                    }
+
+                    if bill.notes?.contains("[Estimate]") == true {
+                        Text("Est.")
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.budgetWarning.opacity(0.15))
+                            .foregroundColor(.budgetWarning)
+                            .cornerRadius(4)
+                    }
 
                     Spacer()
                 }
@@ -285,6 +338,15 @@ struct BillRow: View {
     }
 }
 
+// MARK: - Line Item Row (for AddBillSheet)
+
+struct LineItemEntry: Identifiable {
+    let id = UUID()
+    var billType: BillType = .other
+    var amount: Double = 0
+    var label: String = ""
+}
+
 // MARK: - Add Bill Sheet
 
 struct AddBillSheet: View {
@@ -302,6 +364,8 @@ struct AddBillSheet: View {
     @State private var isRecurring: Bool = false
     @State private var recurringFrequency: RecurringFrequency = .monthly
     @State private var notes: String = ""
+    @State private var useLineItems: Bool = false
+    @State private var lineItems: [LineItemEntry] = []
 
     private var currencyCode: String {
         CurrencyFormatter.shared.locale.currencyCode
@@ -309,6 +373,12 @@ struct AddBillSheet: View {
 
     private var attachedDocument: Document? {
         viewModel.importedDocument
+    }
+
+    private var lineItemsTotal: Decimal {
+        lineItems.reduce(Decimal.zero) { total, item in
+            total + (Decimal(string: String(format: "%.2f", item.amount)) ?? 0)
+        }
     }
 
     var body: some View {
@@ -406,20 +476,78 @@ struct AddBillSheet: View {
                 }
 
                 Section("Amount") {
-                    HStack {
-                        Text("Total Amount")
-                        Spacer()
-                        TextField("Amount", value: $amount, format: .currency(code: currencyCode))
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 140)
+                    Toggle("Multiple line items", isOn: $useLineItems)
+
+                    if useLineItems {
+                        ForEach($lineItems) { $item in
+                            HStack(spacing: 8) {
+                                Picker("", selection: $item.billType) {
+                                    ForEach(BillType.Group.allCases) { group in
+                                        Section(group.rawValue) {
+                                            ForEach(group.types) { type in
+                                                Label(type.rawValue, systemImage: type.icon)
+                                                    .tag(type)
+                                            }
+                                        }
+                                    }
+                                }
+                                .frame(width: 160)
+
+                                TextField("Amount", value: $item.amount, format: .currency(code: currencyCode))
+                                    .multilineTextAlignment(.trailing)
+                                    .frame(width: 100)
+
+                                TextField("Label", text: $item.label)
+                                    .frame(width: 100)
+
+                                Button {
+                                    lineItems.removeAll { $0.id == item.id }
+                                } label: {
+                                    Image(systemName: "minus.circle.fill")
+                                        .foregroundColor(.budgetDanger)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+
+                        Button {
+                            lineItems.append(LineItemEntry())
+                        } label: {
+                            Label("Add Line Item", systemImage: "plus.circle")
+                        }
+
+                        HStack {
+                            Text("Total")
+                                .fontWeight(.medium)
+                            Spacer()
+                            Text(CurrencyFormatter.shared.format(
+                                Double(truncating: lineItemsTotal as NSNumber)
+                            ))
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.bold)
+                        }
+                    } else {
+                        HStack {
+                            Text("Total Amount")
+                            Spacer()
+                            TextField("Amount", value: $amount, format: .currency(code: currencyCode))
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 140)
+                        }
                     }
                 }
 
                 Section("Classification") {
-                    Picker("Bill Type", selection: $selectedBillType) {
-                        ForEach(BillType.allCases) { type in
-                            Label(type.rawValue, systemImage: type.icon)
-                                .tag(type)
+                    if !useLineItems {
+                        Picker("Bill Type", selection: $selectedBillType) {
+                            ForEach(BillType.Group.allCases) { group in
+                                Section(group.rawValue) {
+                                    ForEach(group.types) { type in
+                                        Label(type.rawValue, systemImage: type.icon)
+                                            .tag(type)
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -456,8 +584,21 @@ struct AddBillSheet: View {
                 .buttonStyle(.bordered)
 
                 Button("Add Bill") {
+                    let resolvedLineItems: [(billType: BillType, amount: Decimal, label: String?)] =
+                        useLineItems ? lineItems.map { entry in
+                            (
+                                billType: entry.billType,
+                                amount: Decimal(string: String(format: "%.2f", entry.amount)) ?? 0,
+                                label: entry.label.isEmpty ? nil : entry.label
+                            )
+                        } : []
+
+                    let finalAmount: Decimal = useLineItems
+                        ? lineItemsTotal
+                        : (Decimal(string: String(format: "%.2f", amount)) ?? 0)
+
                     viewModel.createBillTransaction(
-                        amount: Decimal(string: String(format: "%.2f", amount)) ?? 0,
+                        amount: finalAmount,
                         date: billDate,
                         vendor: vendor,
                         billType: selectedBillType,
@@ -466,17 +607,18 @@ struct AddBillSheet: View {
                         dueDate: hasDueDate ? dueDate : nil,
                         isRecurring: isRecurring,
                         recurringFrequency: isRecurring ? recurringFrequency : nil,
+                        lineItems: resolvedLineItems,
                         modelContext: modelContext
                     )
                     viewModel.resetImportState()
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(amount <= 0 || vendor.isEmpty)
+                .disabled(vendor.isEmpty || (useLineItems ? lineItemsTotal <= 0 : amount <= 0))
             }
         }
         .padding()
-        .frame(width: 500, height: 700)
+        .frame(width: 560, height: 750)
         .onAppear {
             if let parsed = viewModel.parsedData {
                 if let v = parsed.vendor, !v.isEmpty {
@@ -490,12 +632,29 @@ struct AddBillSheet: View {
                     dueDate = date
                 }
 
-                let totalAmount = ParsedBillData.toDecimal(parsed.totalAmount)
-                if totalAmount > 0 {
-                    amount = Double(truncating: totalAmount as NSNumber)
+                // Check for line items from AI
+                if let parsedItems = parsed.lineItems, parsedItems.count > 1 {
+                    useLineItems = true
+                    lineItems = parsedItems.map { item in
+                        var entry = LineItemEntry()
+                        if let typeStr = item.billType,
+                           let type = BillType.allCases.first(where: { $0.rawValue == typeStr }) {
+                            entry.billType = type
+                        }
+                        if let amtStr = item.amount {
+                            entry.amount = Double(amtStr) ?? 0
+                        }
+                        entry.label = item.label ?? ""
+                        return entry
+                    }
+                } else {
+                    let totalAmount = ParsedBillData.toDecimal(parsed.totalAmount)
+                    if totalAmount > 0 {
+                        amount = Double(truncating: totalAmount as NSNumber)
+                    }
+                    selectedBillType = parsed.resolvedBillType
                 }
 
-                selectedBillType = parsed.resolvedBillType
                 selectedCategoryType = parsed.resolvedCategoryType
 
                 // Build auto-notes from parsed data
@@ -536,25 +695,24 @@ struct BillDetailSheet: View {
         return try? JSONDecoder().decode(ParsedBillData.self, from: data)
     }
 
-    private var billType: BillType {
-        guard let notes = bill.notes else { return .other }
-        for type in BillType.allCases {
-            if notes.contains("[\(type.rawValue)]") {
-                return type
-            }
-        }
-        return .other
+    private var billTypes: [BillType] {
+        let types = BillsViewModel.extractBillTypes(from: bill.notes)
+        return types.isEmpty ? [.other] : types
+    }
+
+    private var primaryType: BillType {
+        billTypes.first ?? .other
     }
 
     var body: some View {
         VStack(spacing: 20) {
             // Header
             HStack {
-                Image(systemName: billType.icon)
+                Image(systemName: primaryType.icon)
                     .font(.title)
                     .foregroundColor(.white)
                     .frame(width: 56, height: 56)
-                    .background(billType.color)
+                    .background(primaryType.color)
                     .cornerRadius(12)
 
                 VStack(alignment: .leading) {
@@ -587,11 +745,19 @@ struct BillDetailSheet: View {
                                 .foregroundColor(.secondary)
                         }
                         HStack {
-                            Text("Type")
+                            Text("Type\(billTypes.count > 1 ? "s" : "")")
                             Spacer()
-                            Label(billType.rawValue, systemImage: billType.icon)
-                                .font(.subheadline)
-                                .foregroundColor(billType.color)
+                            HStack(spacing: 4) {
+                                ForEach(billTypes) { type in
+                                    Label(type.rawValue, systemImage: type.icon)
+                                        .font(.caption)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(type.color.opacity(0.15))
+                                        .foregroundColor(type.color)
+                                        .cornerRadius(4)
+                                }
+                            }
                         }
                         if let category = bill.category {
                             HStack {
@@ -624,6 +790,35 @@ struct BillDetailSheet: View {
                     .padding()
                     .background(Color(.controlBackgroundColor))
                     .cornerRadius(12)
+
+                    // Line Items
+                    if let items = bill.billLineItems, !items.isEmpty, items.count > 1 {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Line Items")
+                                .font(.headline)
+
+                            ForEach(items) { item in
+                                HStack {
+                                    Label(item.billType.rawValue, systemImage: item.billType.icon)
+                                        .font(.subheadline)
+                                        .foregroundColor(item.billType.color)
+                                    if let label = item.label, !label.isEmpty {
+                                        Text(label)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                    Text(CurrencyFormatter.shared.format(
+                                        Double(truncating: item.amount as NSNumber)
+                                    ))
+                                    .font(.system(.subheadline, design: .monospaced))
+                                }
+                            }
+                        }
+                        .padding()
+                        .background(Color(.controlBackgroundColor))
+                        .cornerRadius(12)
+                    }
 
                     // Parsed Details
                     if let parsedBillData = decodedParsedData {

@@ -36,7 +36,13 @@ struct ReportsView: View {
                 // Section 4: Net Worth Over Time
                 netWorthSection
 
-                // Section 5: Top Expenses
+                // Section 5: Month-over-Month Comparison
+                momComparisonSection
+
+                // Section 6: Unusual Spending
+                anomalySection
+
+                // Section 7: Top Expenses
                 topExpensesSection
             }
             .padding(.vertical)
@@ -64,6 +70,18 @@ struct ReportsView: View {
                     .foregroundColor(.secondary)
             }
             Spacer()
+
+            Menu {
+                Button {
+                    exportReportPDF()
+                } label: {
+                    Label("Export PDF", systemImage: "doc.richtext")
+                }
+            } label: {
+                Label("Export", systemImage: "square.and.arrow.up")
+            }
+            .menuStyle(.borderlessButton)
+            .frame(width: 80)
 
             Picker("Period", selection: $viewModel.selectedPeriod) {
                 ForEach(ReportPeriod.allCases, id: \.self) { period in
@@ -494,6 +512,219 @@ struct ReportsView: View {
         .background(Color(.controlBackgroundColor))
         .cornerRadius(12)
         .padding(.horizontal)
+    }
+
+    // MARK: - Section 5: Month-over-Month Comparison
+
+    private var momComparisonSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Month-over-Month Changes")
+                .font(.headline)
+
+            if let current = viewModel.incomeVsExpenseData.last,
+               current.previousIncome != nil {
+                LazyVGrid(columns: [
+                    GridItem(.flexible()),
+                    GridItem(.flexible()),
+                    GridItem(.flexible())
+                ], spacing: 12) {
+                    momCard(
+                        title: "Income",
+                        currentValue: current.income,
+                        changePercent: current.incomeChange,
+                        positiveIsGood: true
+                    )
+                    momCard(
+                        title: "Expenses",
+                        currentValue: current.expenses,
+                        changePercent: current.expensesChange,
+                        positiveIsGood: false
+                    )
+                    momCard(
+                        title: "Net",
+                        currentValue: current.net,
+                        changePercent: current.netChange,
+                        positiveIsGood: true
+                    )
+                }
+            } else {
+                ContentUnavailableView(
+                    "Not Enough Data",
+                    systemImage: "chart.line.flattrend.xyaxis",
+                    description: Text("Need at least two months of data for comparison")
+                )
+                .frame(height: 120)
+            }
+        }
+        .padding()
+        .background(Color(.controlBackgroundColor))
+        .cornerRadius(12)
+        .padding(.horizontal)
+    }
+
+    private func momCard(title: String, currentValue: Double, changePercent: Double?, positiveIsGood: Bool) -> some View {
+        VStack(spacing: 6) {
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            Text(CurrencyFormatter.shared.format(currentValue))
+                .font(.title3)
+                .fontWeight(.semibold)
+
+            if let change = changePercent {
+                HStack(spacing: 4) {
+                    Image(systemName: change >= 0 ? "arrow.up.right" : "arrow.down.right")
+                        .font(.caption2)
+
+                    Text(String(format: "%+.1f%%", change))
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                }
+                .foregroundColor(momChangeColor(change: change, positiveIsGood: positiveIsGood))
+            } else {
+                Text("--")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background {
+            if let change = changePercent {
+                momChangeColor(change: change, positiveIsGood: positiveIsGood).opacity(0.08)
+            } else {
+                Color.secondary.opacity(0.05)
+            }
+        }
+        .cornerRadius(8)
+    }
+
+    private func momChangeColor(change: Double, positiveIsGood: Bool) -> Color {
+        if abs(change) < 1.0 { return .secondary }
+        let isPositiveChange = change >= 0
+        let isGood = positiveIsGood ? isPositiveChange : !isPositiveChange
+        return isGood ? .budgetHealthy : .budgetDanger
+    }
+
+    // MARK: - Section 6: Unusual Spending (Anomaly Detection)
+
+    private var anomalySection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: "exclamationmark.triangle")
+                    .foregroundColor(.budgetWarning)
+                Text("Unusual Spending")
+                    .font(.headline)
+                Spacer()
+                if !viewModel.anomalies.isEmpty {
+                    Text("\(viewModel.anomalies.count) flagged")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(Color.budgetWarning.opacity(0.1))
+                        .cornerRadius(6)
+                }
+            }
+
+            if viewModel.anomalies.isEmpty {
+                ContentUnavailableView(
+                    "No Anomalies Detected",
+                    systemImage: "checkmark.shield",
+                    description: Text("Your spending looks normal for this period")
+                )
+                .frame(height: 120)
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(viewModel.anomalies.prefix(5)) { anomaly in
+                        anomalyRow(anomaly: anomaly)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color(.controlBackgroundColor))
+        .cornerRadius(12)
+        .padding(.horizontal)
+    }
+
+    // MARK: - Export
+
+    private func exportReportPDF() {
+        let rangeStart = viewModel.startDate
+        let rangeEnd = viewModel.endDate
+        let descriptor = FetchDescriptor<Transaction>(
+            predicate: #Predicate<Transaction> {
+                $0.date >= rangeStart && $0.date <= rangeEnd
+            },
+            sortBy: [SortDescriptor(\Transaction.date, order: .reverse)]
+        )
+        guard let transactions = try? modelContext.fetch(descriptor), !transactions.isEmpty else { return }
+
+        let periodLabel = viewModel.selectedPeriod.rawValue
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .medium
+        let rangeStr = "\(dateFormatter.string(from: viewModel.startDate)) – \(dateFormatter.string(from: viewModel.endDate))"
+
+        let data = ExportService.shared.generateTransactionPDF(
+            transactions: transactions,
+            title: "Financial Report — \(periodLabel)",
+            dateRange: rangeStr
+        )
+        let dateSuffix = DateFormatter.exportFileDateFormatter.string(from: Date())
+        Task {
+            _ = await ExportService.shared.saveWithPanel(
+                data: data,
+                suggestedName: "Report_\(periodLabel)_\(dateSuffix).pdf",
+                fileType: .pdf
+            )
+        }
+    }
+
+    private func anomalyRow(anomaly: SpendingAnomaly) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "exclamationmark.circle.fill")
+                .foregroundColor(.budgetWarning)
+                .font(.title3)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(anomaly.description)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .lineLimit(1)
+
+                HStack(spacing: 8) {
+                    Text(anomaly.category)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Text(anomaly.date, style: .date)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(CurrencyFormatter.shared.format(anomaly.amount))
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.budgetDanger)
+
+                Text(String(format: "+%.0f%% vs avg", anomaly.overagePercentage))
+                    .font(.caption2)
+                    .foregroundColor(.budgetWarning)
+            }
+        }
+        .padding(10)
+        .background(Color.budgetWarning.opacity(0.04))
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.budgetWarning.opacity(0.15), lineWidth: 1)
+        )
     }
 }
 

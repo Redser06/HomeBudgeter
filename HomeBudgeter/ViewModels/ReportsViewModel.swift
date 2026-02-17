@@ -27,7 +27,47 @@ struct IncomeExpenseData: Identifiable {
     let income: Double
     let expenses: Double
 
+    // MoM comparison fields
+    var previousIncome: Double?
+    var previousExpenses: Double?
+
     var net: Double { income - expenses }
+    var previousNet: Double? {
+        guard let prevIncome = previousIncome, let prevExpenses = previousExpenses else { return nil }
+        return prevIncome - prevExpenses
+    }
+
+    var incomeChange: Double? {
+        guard let prev = previousIncome, prev > 0 else { return nil }
+        return ((income - prev) / prev) * 100
+    }
+
+    var expensesChange: Double? {
+        guard let prev = previousExpenses, prev > 0 else { return nil }
+        return ((expenses - prev) / prev) * 100
+    }
+
+    var netChange: Double? {
+        guard let prev = previousNet, abs(prev) > 0 else { return nil }
+        return ((net - prev) / abs(prev)) * 100
+    }
+}
+
+// MARK: - Anomaly Data
+
+struct SpendingAnomaly: Identifiable {
+    let id = UUID()
+    let description: String
+    let amount: Double
+    let date: Date
+    let category: String
+    let categoryAverage: Double
+    let deviationFactor: Double
+
+    var overagePercentage: Double {
+        guard categoryAverage > 0 else { return 0 }
+        return ((amount - categoryAverage) / categoryAverage) * 100
+    }
 }
 
 struct CategoryBreakdownData: Identifiable {
@@ -73,6 +113,7 @@ class ReportsViewModel {
     var netWorthHistory: [NetWorthPoint] = []
     var topExpenses: [TopExpenseData] = []
     var budgetUtilisation: [BudgetUtilisationData] = []
+    var anomalies: [SpendingAnomaly] = []
 
     // MARK: - Computed Properties
 
@@ -114,6 +155,7 @@ class ReportsViewModel {
         loadNetWorthHistory(modelContext: modelContext)
         loadTopExpenses(modelContext: modelContext)
         loadBudgetUtilisation(modelContext: modelContext)
+        loadAnomalies(modelContext: modelContext)
     }
 
     func loadIncomeVsExpense(modelContext: ModelContext) {
@@ -126,7 +168,11 @@ class ReportsViewModel {
         let monthsBetween = calendar.dateComponents([.month], from: startDate, to: endDate).month ?? 0
         let totalMonths = max(monthsBetween + 1, 1)
 
-        for monthOffset in 0..<totalMonths {
+        // Fetch one extra month before the range for MoM comparison on the first month
+        let extraMonthOffset = -1
+        var allMonthData: [(monthStart: Date, income: Double, expenses: Double)] = []
+
+        for monthOffset in extraMonthOffset..<totalMonths {
             guard let monthStart = calendar.date(byAdding: .month, value: monthOffset, to: startDate) else {
                 continue
             }
@@ -136,8 +182,6 @@ class ReportsViewModel {
                   let monthEnd = calendar.date(byAdding: .month, value: 1, to: normalizedMonthStart) else {
                 continue
             }
-
-            let monthName = dateFormatter.string(from: normalizedMonthStart)
 
             let predicate = #Predicate<Transaction> { transaction in
                 transaction.date >= normalizedMonthStart && transaction.date < monthEnd
@@ -155,15 +199,31 @@ class ReportsViewModel {
                     .filter { $0.type == .expense }
                     .reduce(0.0) { $0 + Double(truncating: $1.amount as NSNumber) }
 
-                results.append(IncomeExpenseData(
-                    month: monthName,
-                    monthDate: normalizedMonthStart,
-                    income: income,
-                    expenses: expenses
-                ))
+                allMonthData.append((monthStart: normalizedMonthStart, income: income, expenses: expenses))
             } catch {
                 print("Error loading income vs expense: \(error)")
             }
+        }
+
+        // Build results with MoM comparison
+        for i in 0..<allMonthData.count {
+            let data = allMonthData[i]
+            // Skip the extra month (index 0) — it's only used for previous data
+            if i == 0 && totalMonths > 0 {
+                continue
+            }
+
+            let monthName = dateFormatter.string(from: data.monthStart)
+            let previous = i > 0 ? allMonthData[i - 1] : nil
+
+            results.append(IncomeExpenseData(
+                month: monthName,
+                monthDate: data.monthStart,
+                income: data.income,
+                expenses: data.expenses,
+                previousIncome: previous?.income,
+                previousExpenses: previous?.expenses
+            ))
         }
 
         incomeVsExpenseData = results
@@ -345,6 +405,75 @@ class ReportsViewModel {
                 }
         } catch {
             print("Error loading budget utilisation: \(error)")
+        }
+    }
+
+    func loadAnomalies(modelContext: ModelContext) {
+        let calendar = Calendar.current
+        let now = Date()
+
+        // Look back 6 months for baseline statistics
+        guard let sixMonthsAgo = calendar.date(byAdding: .month, value: -6, to: now) else {
+            anomalies = []
+            return
+        }
+
+        let historyStart = sixMonthsAgo
+        let predicate = #Predicate<Transaction> { transaction in
+            transaction.date >= historyStart
+        }
+        let descriptor = FetchDescriptor<Transaction>(predicate: predicate)
+
+        do {
+            let transactions = try modelContext.fetch(descriptor)
+            let expenses = transactions.filter { $0.type == .expense }
+
+            // Group expenses by category
+            var categoryTransactions: [String: [Transaction]] = [:]
+            for transaction in expenses {
+                let categoryName = transaction.category?.type.rawValue ?? "Other"
+                categoryTransactions[categoryName, default: []].append(transaction)
+            }
+
+            var detectedAnomalies: [SpendingAnomaly] = []
+
+            for (category, catTransactions) in categoryTransactions {
+                guard catTransactions.count >= 3 else { continue }
+
+                let amounts = catTransactions.map { Double(truncating: $0.amount as NSNumber) }
+                let mean = amounts.reduce(0, +) / Double(amounts.count)
+                let variance = amounts.map { pow($0 - mean, 2) }.reduce(0, +) / Double(amounts.count)
+                let stdDev = sqrt(variance)
+
+                guard stdDev > 0 else { continue }
+
+                // Flag transactions within the selected period that are > 2 stddev above mean
+                let periodTransactions = catTransactions.filter {
+                    $0.date >= startDate && $0.date <= endDate
+                }
+
+                for transaction in periodTransactions {
+                    let amount = Double(truncating: transaction.amount as NSNumber)
+                    let deviation = (amount - mean) / stdDev
+
+                    if deviation > 2.0 {
+                        detectedAnomalies.append(SpendingAnomaly(
+                            description: transaction.descriptionText,
+                            amount: amount,
+                            date: transaction.date,
+                            category: category,
+                            categoryAverage: mean,
+                            deviationFactor: deviation
+                        ))
+                    }
+                }
+            }
+
+            // Sort by deviation factor (most unusual first)
+            anomalies = detectedAnomalies.sorted { $0.deviationFactor > $1.deviationFactor }
+        } catch {
+            print("Error loading anomalies: \(error)")
+            anomalies = []
         }
     }
 

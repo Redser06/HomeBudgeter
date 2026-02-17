@@ -19,7 +19,8 @@ struct HomeBudgeterApp: App {
             Document.self,
             Payslip.self,
             PensionData.self,
-            RecurringTemplate.self
+            RecurringTemplate.self,
+            BillLineItem.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -33,6 +34,17 @@ struct HomeBudgeterApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onAppear {
+                    BillMigrationService.shared.migrateIfNeeded(
+                        modelContext: sharedModelContainer.mainContext
+                    )
+                }
+                .task {
+                    _ = await NotificationService.shared.requestPermission()
+                    await NotificationService.shared.scheduleUpcomingReminders(
+                        modelContext: sharedModelContainer.mainContext
+                    )
+                }
         }
         .modelContainer(sharedModelContainer)
         .windowStyle(.hiddenTitleBar)

@@ -25,6 +25,9 @@ final class Transaction {
     var linkedDocument: Document?
     var parentTemplate: RecurringTemplate?
 
+    @Relationship(deleteRule: .cascade, inverse: \BillLineItem.transaction)
+    var billLineItems: [BillLineItem]?
+
     init(
         amount: Decimal,
         date: Date = Date(),

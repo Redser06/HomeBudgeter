@@ -70,6 +70,16 @@ struct RecurringTransactionsView: View {
             // Templates List
             ScrollView {
                 LazyVStack(spacing: 12) {
+                    // Price Increase Alerts
+                    if !viewModel.priceIncreaseTemplates.isEmpty {
+                        priceIncreaseSection
+                    }
+
+                    // Cancellation Suggestions
+                    if !viewModel.cancellationSuggestions.isEmpty {
+                        cancellationSuggestionSection
+                    }
+
                     if viewModel.templates.isEmpty {
                         ContentUnavailableView(
                             "No Recurring Transactions",
@@ -146,6 +156,7 @@ struct RecurringTransactionsView: View {
         .frame(minWidth: 600)
         .onAppear {
             viewModel.loadTemplates(modelContext: modelContext)
+            viewModel.refreshPriceHistories(modelContext: modelContext)
         }
         .sheet(isPresented: $viewModel.showingCreateSheet) {
             AddRecurringSheet(viewModel: viewModel, modelContext: modelContext)
@@ -236,6 +247,22 @@ struct RecurringTemplateRow: View {
                             .cornerRadius(4)
                     }
 
+                    if template.hasPriceIncrease {
+                        HStack(spacing: 2) {
+                            Image(systemName: "arrow.up.right")
+                                .font(.caption2)
+                            if let pct = template.priceIncreasePercentage {
+                                Text(String(format: "+%.0f%%", pct))
+                                    .font(.caption2)
+                            }
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.red.opacity(0.12))
+                        .foregroundColor(.red)
+                        .cornerRadius(4)
+                    }
+
                     if isPaused {
                         Text("Paused")
                             .font(.caption2)
@@ -283,6 +310,116 @@ struct RecurringTemplateRow: View {
         )
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
+    }
+}
+
+// MARK: - Price Increase & Cancellation Sections
+
+extension RecurringTransactionsView {
+    var priceIncreaseSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .foregroundColor(.budgetDanger)
+                Text("Price Increases Detected")
+                    .font(.headline)
+                    .foregroundColor(.budgetDanger)
+                Spacer()
+            }
+            .padding(.horizontal, 4)
+
+            ForEach(viewModel.priceIncreaseTemplates) { template in
+                HStack(spacing: 12) {
+                    Image(systemName: "arrow.up.right.circle.fill")
+                        .foregroundColor(.budgetDanger)
+                        .font(.title3)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(template.name)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Text(template.frequency.rawValue)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Spacer()
+
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(template.formattedAmount)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        if let pct = template.priceIncreasePercentage {
+                            Text(String(format: "+%.1f%% increase", pct))
+                                .font(.caption)
+                                .foregroundColor(.budgetDanger)
+                        }
+                    }
+                }
+                .padding(10)
+                .background(Color.budgetDanger.opacity(0.04))
+                .cornerRadius(8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.budgetDanger.opacity(0.15), lineWidth: 1)
+                )
+            }
+        }
+    }
+
+    var cancellationSuggestionSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "lightbulb.fill")
+                    .foregroundColor(.budgetWarning)
+                Text("Review Subscriptions")
+                    .font(.headline)
+                Spacer()
+            }
+            .padding(.horizontal, 4)
+
+            ForEach(viewModel.cancellationSuggestions) { suggestion in
+                HStack(spacing: 12) {
+                    Image(systemName: "questionmark.circle.fill")
+                        .foregroundColor(.budgetWarning)
+                        .font(.title3)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(suggestion.template.name)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+
+                        Text(suggestion.reason)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer()
+
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text(suggestion.template.formattedAmount)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.budgetWarning)
+
+                        Button("Pause") {
+                            viewModel.pauseTemplate(suggestion.template, modelContext: modelContext)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.budgetWarning)
+                        .controlSize(.small)
+                    }
+                }
+                .padding(10)
+                .background(Color.budgetWarning.opacity(0.04))
+                .cornerRadius(8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.budgetWarning.opacity(0.15), lineWidth: 1)
+                )
+            }
+        }
     }
 }
 

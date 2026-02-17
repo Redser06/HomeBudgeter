@@ -17,6 +17,8 @@ enum NavigationItem: String, CaseIterable, Identifiable {
     case payslips = "Payslips"
     case pension = "Pension"
     case reports = "Reports"
+    case forecast = "Forecast"
+    case taxInsights = "Tax Insights"
     case settings = "Settings"
 
     var id: String { rawValue }
@@ -32,6 +34,8 @@ enum NavigationItem: String, CaseIterable, Identifiable {
         case .payslips: return "doc.text.fill"
         case .pension: return "building.columns.fill"
         case .reports: return "chart.bar.fill"
+        case .forecast: return "chart.line.uptrend.xyaxis.circle.fill"
+        case .taxInsights: return "building.columns.circle.fill"
         case .settings: return "gearshape.fill"
         }
     }
@@ -89,6 +93,10 @@ struct DetailView: View {
             PensionView()
         case .reports:
             ReportsView()
+        case .forecast:
+            ForecastView()
+        case .taxInsights:
+            TaxInsightsView()
         case .settings:
             SettingsView()
         case nil:

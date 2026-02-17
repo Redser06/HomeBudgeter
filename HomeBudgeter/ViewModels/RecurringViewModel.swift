@@ -31,6 +31,21 @@ class RecurringViewModel {
         templates.filter { $0.isActive }.reduce(0) { $0 + $1.monthlyEquivalentAmount }
     }
 
+    var priceIncreaseTemplates: [RecurringTemplate] {
+        templates.filter { $0.isActive && $0.hasPriceIncrease }
+    }
+
+    var cancellationSuggestions: [CancellationSuggestion] {
+        analyseSubscriptionValue()
+    }
+
+    struct CancellationSuggestion: Identifiable {
+        let id: UUID
+        let template: RecurringTemplate
+        let reason: String
+        let score: Int // 0-100, lower = more likely should cancel
+    }
+
     // MARK: - Data Methods
 
     func loadTemplates(modelContext: ModelContext) {
@@ -104,6 +119,85 @@ class RecurringViewModel {
     func processOverdue(modelContext: ModelContext) {
         RecurringTransactionService.shared.generateDueTransactions(modelContext: modelContext)
         loadTemplates(modelContext: modelContext)
+    }
+
+    // MARK: - Price Tracking
+
+    func updatePriceHistory(for template: RecurringTemplate, modelContext: ModelContext) {
+        // Record the current amount
+        template.recordPrice(template.amount)
+        template.updatedAt = Date()
+        try? modelContext.save()
+    }
+
+    func refreshPriceHistories(modelContext: ModelContext) {
+        for template in templates where template.isActive {
+            // Build price history from generated transactions if empty
+            if template.priceHistory.isEmpty {
+                let sorted = template.generatedTransactions.sorted { $0.date < $1.date }
+                for transaction in sorted {
+                    template.recordPrice(transaction.amount, date: transaction.date)
+                }
+            }
+        }
+        try? modelContext.save()
+    }
+
+    // MARK: - Cancellation Analysis
+
+    private func analyseSubscriptionValue() -> [CancellationSuggestion] {
+        let totalMonthly = monthlyCost
+        guard totalMonthly > 0 else { return [] }
+
+        var suggestions: [CancellationSuggestion] = []
+
+        for template in templates where template.isActive {
+            var score = 100 // Start at 100, subtract for risk factors
+            var reasons: [String] = []
+
+            // Factor 1: Cost as percentage of total recurring spend
+            let costShare = Double(truncating: (template.monthlyEquivalentAmount / totalMonthly) as NSNumber) * 100
+            if costShare > 25 {
+                score -= 20
+                reasons.append("High cost (\(String(format: "%.0f%%", costShare)) of recurring spend)")
+            } else if costShare > 15 {
+                score -= 10
+            }
+
+            // Factor 2: Price has been increasing
+            if template.hasPriceIncrease {
+                score -= 15
+                if let pct = template.priceIncreasePercentage {
+                    reasons.append("Price up \(String(format: "%.0f%%", pct)) since tracking started")
+                }
+            }
+
+            // Factor 3: Stale / possibly unused (no transactions recently)
+            let recentTransactions = template.generatedTransactions.filter {
+                $0.date > Calendar.current.date(byAdding: .month, value: -3, to: Date())!
+            }
+            if recentTransactions.isEmpty && template.generatedTransactions.count > 0 {
+                score -= 25
+                reasons.append("No transactions in the last 3 months")
+            }
+
+            // Factor 4: Variable amount templates with high variance
+            if template.isVariableAmount {
+                score -= 5
+            }
+
+            // Only suggest if score drops below 70
+            if score < 70 && !reasons.isEmpty {
+                suggestions.append(CancellationSuggestion(
+                    id: template.id,
+                    template: template,
+                    reason: reasons.joined(separator: ". "),
+                    score: max(score, 0)
+                ))
+            }
+        }
+
+        return suggestions.sorted { $0.score < $1.score }
     }
 
     // MARK: - Create Template from Detection

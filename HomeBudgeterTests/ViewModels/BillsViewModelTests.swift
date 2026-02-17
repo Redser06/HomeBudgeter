@@ -27,7 +27,8 @@ final class BillsViewModelTests: XCTestCase {
             SavingsGoal.self,
             Payslip.self,
             PensionData.self,
-            RecurringTemplate.self
+            RecurringTemplate.self,
+            BillLineItem.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
 
@@ -67,7 +68,8 @@ final class BillsViewModelTests: XCTestCase {
         date: Date? = nil,
         isRecurring: Bool = false,
         recurringFrequency: RecurringFrequency? = nil,
-        attachDocument: Bool = true
+        attachDocument: Bool = true,
+        lineItems: [(billType: BillType, amount: Decimal, label: String?)] = []
     ) {
         let currentYear = Calendar.current.component(.year, from: Date())
         let billDate = date ?? makeDate(year: currentYear, month: 6, day: 15)
@@ -95,6 +97,7 @@ final class BillsViewModelTests: XCTestCase {
             dueDate: nil,
             isRecurring: isRecurring,
             recurringFrequency: recurringFrequency,
+            lineItems: lineItems,
             modelContext: modelContext
         )
     }
@@ -125,7 +128,7 @@ final class BillsViewModelTests: XCTestCase {
             amount: Decimal(string: "150.00")!,
             date: billDate,
             vendor: "Electric Ireland",
-            billType: .gasElectric,
+            billType: .electric,
             categoryType: .utilities,
             notes: "March bill",
             dueDate: makeDate(year: currentYear, month: 3, day: 25),
@@ -143,13 +146,13 @@ final class BillsViewModelTests: XCTestCase {
         XCTAssertEqual(bill?.descriptionText, "Electric Ireland")
         XCTAssertTrue(bill?.isRecurring ?? false)
         XCTAssertEqual(bill?.recurringFrequency, .monthly)
-        XCTAssertTrue(bill?.notes?.contains("[Gas & Electric]") ?? false)
+        XCTAssertTrue(bill?.notes?.contains("[Electric]") ?? false)
     }
 
     @MainActor
     func test_createBillTransaction_linksDocument() {
         // Given & When
-        createBillWithDocument(vendor: "Virgin Media", billType: .internetTv)
+        createBillWithDocument(vendor: "Virgin Media", billType: .internet)
 
         // Then
         sut.loadBills(modelContext: modelContext)
@@ -164,12 +167,79 @@ final class BillsViewModelTests: XCTestCase {
         XCTAssertEqual(bill?.linkedDocument?.linkedTransaction?.id, bill?.id)
     }
 
+    @MainActor
+    func test_createBillTransaction_withLineItems_createsMultiTagNotes() {
+        // Given
+        let currentYear = Calendar.current.component(.year, from: Date())
+        let lineItems: [(billType: BillType, amount: Decimal, label: String?)] = [
+            (billType: .gas, amount: Decimal(string: "100.00")!, label: "Gas Supply"),
+            (billType: .electric, amount: Decimal(string: "80.00")!, label: "Electricity"),
+        ]
+
+        // When
+        sut.createBillTransaction(
+            amount: Decimal(string: "180.00")!,
+            date: makeDate(year: currentYear, month: 3, day: 10),
+            vendor: "Bord Gáis Energy",
+            billType: .gas,
+            categoryType: .utilities,
+            notes: nil,
+            dueDate: nil,
+            isRecurring: true,
+            recurringFrequency: .monthly,
+            lineItems: lineItems,
+            modelContext: modelContext
+        )
+
+        // Then
+        sut.loadBills(modelContext: modelContext)
+        XCTAssertEqual(sut.bills.count, 1)
+
+        let bill = sut.bills.first!
+        XCTAssertTrue(bill.notes?.contains("[Gas]") ?? false)
+        XCTAssertTrue(bill.notes?.contains("[Electric]") ?? false)
+
+        // Verify BillLineItem records
+        XCTAssertEqual(bill.billLineItems?.count, 2)
+        let sortedItems = (bill.billLineItems ?? []).sorted { $0.amount > $1.amount }
+        XCTAssertEqual(sortedItems[0].billType, .gas)
+        XCTAssertEqual(sortedItems[0].amount, Decimal(string: "100.00")!)
+        XCTAssertEqual(sortedItems[0].label, "Gas Supply")
+        XCTAssertEqual(sortedItems[1].billType, .electric)
+        XCTAssertEqual(sortedItems[1].amount, Decimal(string: "80.00")!)
+    }
+
+    @MainActor
+    func test_createBillTransaction_withoutLineItems_createsSingleLineItem() {
+        // When
+        let currentYear = Calendar.current.component(.year, from: Date())
+        sut.createBillTransaction(
+            amount: Decimal(string: "50.00")!,
+            date: makeDate(year: currentYear, month: 1, day: 1),
+            vendor: "Netflix",
+            billType: .streaming,
+            categoryType: .entertainment,
+            notes: nil,
+            dueDate: nil,
+            isRecurring: false,
+            recurringFrequency: nil,
+            modelContext: modelContext
+        )
+
+        // Then
+        sut.loadBills(modelContext: modelContext)
+        let bill = sut.bills.first!
+        XCTAssertEqual(bill.billLineItems?.count, 1)
+        XCTAssertEqual(bill.billLineItems?.first?.billType, .streaming)
+        XCTAssertEqual(bill.billLineItems?.first?.amount, Decimal(string: "50.00")!)
+    }
+
     // MARK: - Delete Bill
 
     @MainActor
     func test_deleteBill_removesFromList() {
         // Given
-        createBillWithDocument(vendor: "Sky Ireland")
+        createBillWithDocument(vendor: "Sky Ireland", billType: .tv)
         sut.loadBills(modelContext: modelContext)
         XCTAssertEqual(sut.bills.count, 1)
 
@@ -206,9 +276,10 @@ final class BillsViewModelTests: XCTestCase {
             subtotalAmount: "120.00",
             taxAmount: "22.50",
             accountNumber: "IE-12345678",
-            billType: "Gas & Electric",
+            billType: "Electric",
             suggestedCategory: "Utilities",
-            confidence: 0.92
+            confidence: 0.92,
+            lineItems: nil
         )
 
         let document = Document(
@@ -253,12 +324,12 @@ final class BillsViewModelTests: XCTestCase {
         XCTAssertEqual(decoded.subtotalAmount, "120.00")
         XCTAssertEqual(decoded.taxAmount, "22.50")
         XCTAssertEqual(decoded.accountNumber, "IE-12345678")
-        XCTAssertEqual(decoded.billType, "Gas & Electric")
+        XCTAssertEqual(decoded.billType, "Electric")
         XCTAssertEqual(decoded.suggestedCategory, "Utilities")
         XCTAssertEqual(decoded.confidence, 0.92)
 
         // Verify resolved types
-        XCTAssertEqual(decoded.resolvedBillType, .gasElectric)
+        XCTAssertEqual(decoded.resolvedBillType, .electric)
         XCTAssertEqual(decoded.resolvedCategoryType, .utilities)
 
         // Verify Decimal conversion
@@ -275,40 +346,113 @@ final class BillsViewModelTests: XCTestCase {
 
         createBillWithDocument(
             vendor: "Electric Ireland",
-            billType: .gasElectric,
+            billType: .electric,
             date: makeDate(year: currentYear, month: 1, day: 15)
         )
         sut.resetImportState()
 
         createBillWithDocument(
             vendor: "Virgin Media",
-            billType: .internetTv,
+            billType: .internet,
             date: makeDate(year: currentYear, month: 2, day: 15)
         )
         sut.resetImportState()
 
         createBillWithDocument(
             vendor: "Vodafone",
-            billType: .phone,
+            billType: .mobile,
             date: makeDate(year: currentYear, month: 3, day: 15)
         )
 
         sut.loadBills(modelContext: modelContext)
         XCTAssertEqual(sut.bills.count, 3)
 
-        // When — filter by Gas & Electric
-        sut.filterBillType = .gasElectric
+        // When — filter by Electric
+        sut.filterBillType = .electric
         XCTAssertEqual(sut.filteredBills.count, 1)
         XCTAssertEqual(sut.filteredBills.first?.descriptionText, "Electric Ireland")
 
-        // When — filter by Internet & TV
-        sut.filterBillType = .internetTv
+        // When — filter by Internet
+        sut.filterBillType = .internet
         XCTAssertEqual(sut.filteredBills.count, 1)
         XCTAssertEqual(sut.filteredBills.first?.descriptionText, "Virgin Media")
 
         // When — no filter
         sut.filterBillType = nil
         XCTAssertEqual(sut.filteredBills.count, 3)
+    }
+
+    // MARK: - Legacy Tag Recognition
+
+    @MainActor
+    func test_loadBills_recognizesLegacyTags() {
+        // Simulate a pre-migration bill with legacy tag
+        let currentYear = Calendar.current.component(.year, from: Date())
+        let transaction = Transaction(
+            amount: Decimal(string: "100.00")!,
+            date: makeDate(year: currentYear, month: 1, day: 1),
+            descriptionText: "Old Bill",
+            type: .expense,
+            notes: "[Gas & Electric] Old bill"
+        )
+        modelContext.insert(transaction)
+        try? modelContext.save()
+
+        // When
+        sut.loadBills(modelContext: modelContext)
+
+        // Then — legacy-tagged bill should appear
+        XCTAssertEqual(sut.bills.count, 1)
+        XCTAssertEqual(sut.bills.first?.descriptionText, "Old Bill")
+    }
+
+    @MainActor
+    func test_filteredBills_legacyTag_matchesNewFilter() {
+        // Simulate a pre-migration bill with [Gas & Electric] tag
+        let currentYear = Calendar.current.component(.year, from: Date())
+        let transaction = Transaction(
+            amount: Decimal(string: "100.00")!,
+            date: makeDate(year: currentYear, month: 1, day: 1),
+            descriptionText: "Legacy Bill",
+            type: .expense,
+            notes: "[Gas & Electric] Legacy"
+        )
+        modelContext.insert(transaction)
+        try? modelContext.save()
+
+        sut.loadBills(modelContext: modelContext)
+
+        // When — filter by .gas should match [Gas & Electric] via legacy mapping
+        sut.filterBillType = .gas
+        XCTAssertEqual(sut.filteredBills.count, 1)
+
+        // When — filter by .electric should also match
+        sut.filterBillType = .electric
+        XCTAssertEqual(sut.filteredBills.count, 1)
+
+        // When — filter by .water should not match
+        sut.filterBillType = .water
+        XCTAssertEqual(sut.filteredBills.count, 0)
+    }
+
+    // MARK: - Extract Bill Types
+
+    func test_extractBillTypes_newTags() {
+        let types = BillsViewModel.extractBillTypes(from: "[Gas][Electric]")
+        XCTAssertTrue(types.contains(.gas))
+        XCTAssertTrue(types.contains(.electric))
+        XCTAssertEqual(types.count, 2)
+    }
+
+    func test_extractBillTypes_legacyTag() {
+        let types = BillsViewModel.extractBillTypes(from: "[Internet & TV] Some notes")
+        XCTAssertTrue(types.contains(.internet))
+        XCTAssertTrue(types.contains(.tv))
+    }
+
+    func test_extractBillTypes_nilNotes() {
+        let types = BillsViewModel.extractBillTypes(from: nil)
+        XCTAssertTrue(types.isEmpty)
     }
 
     // MARK: - Bills Grouped By Month
@@ -395,8 +539,6 @@ final class BillsViewModelTests: XCTestCase {
         XCTAssertEqual(sut.billCount, 2)
     }
 
-    // MARK: - Reset Import State
-
     // MARK: - Manual Bill (No Document) Appears in List (Regression #12)
 
     @MainActor
@@ -409,7 +551,7 @@ final class BillsViewModelTests: XCTestCase {
             amount: Decimal(string: "75.50")!,
             date: billDate,
             vendor: "Netflix",
-            billType: .subscription,
+            billType: .streaming,
             categoryType: .entertainment,
             notes: nil,
             dueDate: nil,
@@ -425,7 +567,7 @@ final class BillsViewModelTests: XCTestCase {
         XCTAssertEqual(sut.bills.count, 1)
         XCTAssertEqual(sut.bills.first?.descriptionText, "Netflix")
         XCTAssertEqual(sut.bills.first?.amount, Decimal(string: "75.50")!)
-        XCTAssertTrue(sut.bills.first?.notes?.contains("[Subscription]") ?? false)
+        XCTAssertTrue(sut.bills.first?.notes?.contains("[Streaming]") ?? false)
         XCTAssertNil(sut.bills.first?.linkedDocument)
     }
 
@@ -439,7 +581,7 @@ final class BillsViewModelTests: XCTestCase {
             amount: Decimal(string: "12.99")!,
             date: makeDate(year: currentYear, month: 4, day: 1),
             vendor: "Spotify",
-            billType: .subscription,
+            billType: .streaming,
             categoryType: .entertainment,
             notes: nil,
             dueDate: nil,
@@ -452,7 +594,7 @@ final class BillsViewModelTests: XCTestCase {
         createBillWithDocument(
             amount: Decimal(string: "89.00")!,
             vendor: "Electric Ireland",
-            billType: .gasElectric,
+            billType: .electric,
             date: makeDate(year: currentYear, month: 4, day: 15)
         )
 
@@ -466,6 +608,67 @@ final class BillsViewModelTests: XCTestCase {
         XCTAssertTrue(vendors.contains("Electric Ireland"))
     }
 
+    // MARK: - Recurring Detection
+
+    @MainActor
+    func test_detectionTriggersAfterSecondBillFromSameVendor() {
+        let currentYear = Calendar.current.component(.year, from: Date())
+
+        // First bill - should NOT trigger
+        sut.createBillTransaction(
+            amount: Decimal(string: "100.00")!,
+            date: makeDate(year: currentYear, month: 1, day: 15),
+            vendor: "Electric Ireland",
+            billType: .electric,
+            categoryType: .utilities,
+            notes: nil,
+            dueDate: nil,
+            isRecurring: false,
+            recurringFrequency: nil,
+            modelContext: modelContext
+        )
+        XCTAssertFalse(sut.showingRecurringSuggestion)
+        XCTAssertNil(sut.detectedRecurring)
+
+        // Second bill - should trigger
+        sut.createBillTransaction(
+            amount: Decimal(string: "110.00")!,
+            date: makeDate(year: currentYear, month: 2, day: 15),
+            vendor: "Electric Ireland",
+            billType: .electric,
+            categoryType: .utilities,
+            notes: nil,
+            dueDate: nil,
+            isRecurring: false,
+            recurringFrequency: nil,
+            modelContext: modelContext
+        )
+        XCTAssertTrue(sut.showingRecurringSuggestion)
+        XCTAssertNotNil(sut.detectedRecurring)
+        XCTAssertEqual(sut.detectedRecurring?.vendor, "Electric Ireland")
+    }
+
+    @MainActor
+    func test_noDetectionAfterFirstBill() {
+        let currentYear = Calendar.current.component(.year, from: Date())
+
+        sut.createBillTransaction(
+            amount: Decimal(string: "50.00")!,
+            date: makeDate(year: currentYear, month: 3, day: 1),
+            vendor: "Netflix",
+            billType: .streaming,
+            categoryType: .entertainment,
+            notes: nil,
+            dueDate: nil,
+            isRecurring: false,
+            recurringFrequency: nil,
+            modelContext: modelContext
+        )
+
+        XCTAssertFalse(sut.showingRecurringSuggestion)
+        XCTAssertNil(sut.detectedRecurring)
+    }
+
     // MARK: - Reset Import State
 
     func test_resetImportState_clearsAllFields() {
@@ -476,7 +679,7 @@ final class BillsViewModelTests: XCTestCase {
             billingPeriodStart: nil, billingPeriodEnd: nil,
             totalAmount: "100", subtotalAmount: nil, taxAmount: nil,
             accountNumber: nil, billType: nil, suggestedCategory: nil,
-            confidence: 0.9
+            confidence: 0.9, lineItems: nil
         )
         sut.parsingError = "Some error"
         sut.isParsing = true
