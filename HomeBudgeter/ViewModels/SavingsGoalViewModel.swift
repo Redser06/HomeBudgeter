@@ -14,6 +14,7 @@ class SavingsGoalViewModel {
     var goals: [SavingsGoal] = []
     var showingCreateSheet: Bool = false
     var selectedGoal: SavingsGoal?
+    var selectedMember: HouseholdMember?
 
     // MARK: - Computed Properties
 
@@ -25,12 +26,17 @@ class SavingsGoalViewModel {
         goals.reduce(0) { $0 + $1.targetAmount }
     }
 
+    var filteredGoals: [SavingsGoal] {
+        guard let member = selectedMember else { return goals }
+        return goals.filter { $0.member?.id == member.id }
+    }
+
     var completedGoals: [SavingsGoal] {
-        goals.filter { $0.isCompleted }
+        filteredGoals.filter { $0.isCompleted }
     }
 
     var activeGoals: [SavingsGoal] {
-        goals.filter { !$0.isCompleted }
+        filteredGoals.filter { !$0.isCompleted }
     }
 
     // MARK: - Data Methods

@@ -27,6 +27,7 @@ final class SavingsGoal {
     var icon: String
     var notes: String?
     var isCompleted: Bool
+    var member: HouseholdMember?
     var createdAt: Date
     var updatedAt: Date
 

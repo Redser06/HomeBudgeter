@@ -17,6 +17,7 @@ class PayslipViewModel {
     var selectedPayslip: Payslip?
     var filterYear: Int = Calendar.current.component(.year, from: Date())
     var filterEmployer: String?
+    var selectedMember: HouseholdMember?
     var showingFileImporter: Bool = false
     var importedDocument: Document?
     var importError: String?
@@ -34,6 +35,10 @@ class PayslipViewModel {
 
         if let employer = filterEmployer, !employer.isEmpty {
             result = result.filter { $0.employer == employer }
+        }
+
+        if let member = selectedMember {
+            result = result.filter { $0.member?.id == member.id }
         }
 
         return result.sorted { $0.payDate > $1.payDate }

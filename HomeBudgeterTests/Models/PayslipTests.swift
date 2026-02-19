@@ -27,7 +27,10 @@ final class PayslipTests: XCTestCase {
             Payslip.self,
             PensionData.self,
             RecurringTemplate.self,
-            BillLineItem.self
+            BillLineItem.self,
+            HouseholdMember.self,
+            Investment.self,
+            InvestmentTransaction.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
 

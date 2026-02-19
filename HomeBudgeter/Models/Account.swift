@@ -37,6 +37,8 @@ final class Account {
     var createdAt: Date
     var updatedAt: Date
 
+    var owner: HouseholdMember?
+
     @Relationship(deleteRule: .cascade, inverse: \Transaction.account)
     var transactions: [Transaction]?
 

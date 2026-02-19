@@ -32,6 +32,10 @@ class TransactionsViewModel {
         didSet { applyFilters() }
     }
 
+    var selectedMember: HouseholdMember? {
+        didSet { applyFilters() }
+    }
+
     enum DateRange: String, CaseIterable {
         case thisWeek = "This Week"
         case thisMonth = "This Month"
@@ -102,6 +106,11 @@ class TransactionsViewModel {
 
     private func applyFilters() {
         var result = transactions
+
+        // Member filter
+        if let member = selectedMember {
+            result = result.filter { $0.account?.owner?.id == member.id }
+        }
 
         // Date range filter
         let interval = dateRange.dateInterval

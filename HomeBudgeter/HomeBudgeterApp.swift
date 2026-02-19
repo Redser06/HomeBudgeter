@@ -10,26 +10,7 @@ import SwiftData
 
 @main
 struct HomeBudgeterApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Transaction.self,
-            BudgetCategory.self,
-            Account.self,
-            SavingsGoal.self,
-            Document.self,
-            Payslip.self,
-            PensionData.self,
-            RecurringTemplate.self,
-            BillLineItem.self
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
+    let sharedModelContainer = PersistenceController.shared.modelContainer
 
     var body: some Scene {
         WindowGroup {

@@ -25,6 +25,7 @@ struct SettingsView: View {
     @State private var isTestingGemini: Bool = false
     @State private var claudeTestResult: Bool?
     @State private var geminiTestResult: Bool?
+    @State private var showingRestartAlert: Bool = false
 
     let weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
@@ -179,6 +180,37 @@ struct SettingsView: View {
                     }
                 } header: {
                     Label("Security", systemImage: "lock.shield")
+                }
+
+                // Household Members Section
+                Section {
+                    HouseholdMemberManagementView()
+                } header: {
+                    Label("Household Members", systemImage: "person.2")
+                }
+
+                // iCloud Sync Section
+                Section {
+                    Toggle("Enable iCloud Sync", isOn: Binding(
+                        get: { viewModel.iCloudSyncEnabled },
+                        set: { newValue in
+                            viewModel.iCloudSyncEnabled = newValue
+                            showingRestartAlert = true
+                        }
+                    ))
+
+                    HStack(spacing: 8) {
+                        Image(systemName: CloudKitSyncMonitor.shared.statusIcon)
+                            .foregroundColor(cloudSyncStatusColor)
+                        Text(CloudKitSyncMonitor.shared.statusDescription)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Text("Syncs your financial data across Macs using your private iCloud account. Encrypted documents remain stored locally only. Changing this setting requires an app restart.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } header: {
+                    Label("iCloud Sync", systemImage: "icloud")
                 }
 
                 // AI & Parsing Section
@@ -537,6 +569,20 @@ struct SettingsView: View {
             Button("OK") { importMessage = nil }
         } message: {
             Text(importMessage ?? "")
+        }
+        .alert("Restart Required", isPresented: $showingRestartAlert) {
+            Button("OK") {}
+        } message: {
+            Text("Please quit and reopen Home Budgeter for the iCloud Sync change to take effect.")
+        }
+    }
+
+    private var cloudSyncStatusColor: Color {
+        switch CloudKitSyncMonitor.shared.status {
+        case .disabled, .idle: return .secondary
+        case .syncing: return .blue
+        case .succeeded: return .budgetHealthy
+        case .failed: return .budgetDanger
         }
     }
 

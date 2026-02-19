@@ -20,7 +20,10 @@ final class DashboardViewModelTests: XCTestCase {
             Transaction.self, BudgetCategory.self, Account.self,
             Document.self, SavingsGoal.self, Payslip.self, PensionData.self,
             RecurringTemplate.self,
-            BillLineItem.self
+            BillLineItem.self,
+            HouseholdMember.self,
+            Investment.self,
+            InvestmentTransaction.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         do {
@@ -263,6 +266,131 @@ final class DashboardViewModelTests: XCTestCase {
 
         sut.loadData(modelContext: modelContext)
         XCTAssertFalse(sut.categorySpending.contains { $0.amount == 0 })
+    }
+
+    // MARK: - Payslip Income Tests
+
+    @MainActor
+    func test_loadData_withPayslip_includesNetPayInIncome() throws {
+        let payslip = Payslip(
+            payDate: Date(),
+            payPeriodStart: Date(),
+            payPeriodEnd: Date(),
+            grossPay: Decimal(string: "5000")!,
+            netPay: Decimal(string: "3800")!,
+            incomeTax: Decimal(string: "800")!,
+            socialInsurance: Decimal(string: "400")!
+        )
+        modelContext.insert(payslip)
+        try modelContext.save()
+
+        sut.loadData(modelContext: modelContext)
+        XCTAssertEqual(sut.monthlyIncome, Decimal(string: "3800")!)
+    }
+
+    @MainActor
+    func test_loadData_withPayslipAndIncomeTx_sumsBoth() throws {
+        let payslip = Payslip(
+            payDate: Date(),
+            payPeriodStart: Date(),
+            payPeriodEnd: Date(),
+            grossPay: Decimal(string: "5000")!,
+            netPay: Decimal(string: "3800")!,
+            incomeTax: Decimal(string: "800")!,
+            socialInsurance: Decimal(string: "400")!
+        )
+        let income = Transaction(amount: Decimal(string: "500")!, date: Date(), descriptionText: "Freelance", type: .income)
+        modelContext.insert(payslip)
+        modelContext.insert(income)
+        try modelContext.save()
+
+        sut.loadData(modelContext: modelContext)
+        XCTAssertEqual(sut.monthlyIncome, Decimal(string: "4300")!)
+    }
+
+    @MainActor
+    func test_loadData_withMultiplePayslips_sumsAllNetPay() throws {
+        let payslip1 = Payslip(
+            payDate: Date(),
+            payPeriodStart: Date(),
+            payPeriodEnd: Date(),
+            grossPay: Decimal(string: "5000")!,
+            netPay: Decimal(string: "3800")!,
+            incomeTax: Decimal(string: "800")!,
+            socialInsurance: Decimal(string: "400")!
+        )
+        let payslip2 = Payslip(
+            payDate: Date(),
+            payPeriodStart: Date(),
+            payPeriodEnd: Date(),
+            grossPay: Decimal(string: "2000")!,
+            netPay: Decimal(string: "1600")!,
+            incomeTax: Decimal(string: "300")!,
+            socialInsurance: Decimal(string: "100")!
+        )
+        modelContext.insert(payslip1)
+        modelContext.insert(payslip2)
+        try modelContext.save()
+
+        sut.loadData(modelContext: modelContext)
+        XCTAssertEqual(sut.monthlyIncome, Decimal(string: "5400")!)
+    }
+
+    @MainActor
+    func test_loadData_payslipFromPriorMonth_excludedFromIncome() throws {
+        let lastMonth = Calendar.current.date(byAdding: .month, value: -1, to: Date())!
+        let payslip = Payslip(
+            payDate: lastMonth,
+            payPeriodStart: lastMonth,
+            payPeriodEnd: lastMonth,
+            grossPay: Decimal(string: "5000")!,
+            netPay: Decimal(string: "3800")!,
+            incomeTax: Decimal(string: "800")!,
+            socialInsurance: Decimal(string: "400")!
+        )
+        modelContext.insert(payslip)
+        try modelContext.save()
+
+        sut.loadData(modelContext: modelContext)
+        XCTAssertEqual(sut.monthlyIncome, 0)
+    }
+
+    @MainActor
+    func test_loadData_payslipFilteredByMember() throws {
+        let member1 = HouseholdMember(name: "Alice", colorHex: "#FF0000", icon: "person.fill")
+        let member2 = HouseholdMember(name: "Bob", colorHex: "#0000FF", icon: "person.fill")
+        modelContext.insert(member1)
+        modelContext.insert(member2)
+
+        let payslip1 = Payslip(
+            payDate: Date(),
+            payPeriodStart: Date(),
+            payPeriodEnd: Date(),
+            grossPay: Decimal(string: "5000")!,
+            netPay: Decimal(string: "3800")!,
+            incomeTax: Decimal(string: "800")!,
+            socialInsurance: Decimal(string: "400")!
+        )
+        payslip1.member = member1
+
+        let payslip2 = Payslip(
+            payDate: Date(),
+            payPeriodStart: Date(),
+            payPeriodEnd: Date(),
+            grossPay: Decimal(string: "2000")!,
+            netPay: Decimal(string: "1600")!,
+            incomeTax: Decimal(string: "300")!,
+            socialInsurance: Decimal(string: "100")!
+        )
+        payslip2.member = member2
+
+        modelContext.insert(payslip1)
+        modelContext.insert(payslip2)
+        try modelContext.save()
+
+        sut.selectedMember = member1
+        sut.loadData(modelContext: modelContext)
+        XCTAssertEqual(sut.monthlyIncome, Decimal(string: "3800")!)
     }
 
     // MARK: - CategorySpendingData Tests

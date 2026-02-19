@@ -20,7 +20,10 @@ final class DocumentsViewModelTests: XCTestCase {
             Transaction.self, BudgetCategory.self, Account.self,
             Document.self, SavingsGoal.self, Payslip.self, PensionData.self,
             RecurringTemplate.self,
-            BillLineItem.self
+            BillLineItem.self,
+            HouseholdMember.self,
+            Investment.self,
+            InvestmentTransaction.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         do {

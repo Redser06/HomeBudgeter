@@ -35,6 +35,19 @@ struct DashboardView: View {
                     }
                     .pickerStyle(.segmented)
                     .frame(width: 300)
+
+                    if !viewModel.householdMembers.isEmpty {
+                        MemberFilterPicker(
+                            selectedMember: Binding(
+                                get: { viewModel.selectedMember },
+                                set: { member in
+                                    viewModel.selectedMember = member
+                                    viewModel.loadData(modelContext: modelContext)
+                                }
+                            ),
+                            members: viewModel.householdMembers
+                        )
+                    }
                 }
                 .padding(.horizontal)
 

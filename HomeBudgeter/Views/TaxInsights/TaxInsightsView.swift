@@ -377,7 +377,7 @@ struct TaxInsightsView: View {
             } else if let summary = viewModel.yearSummary {
                 if summary.payslipCount == 0 {
                     ContentUnavailableView(
-                        "No Payslips for \(summary.year)",
+                        "No Payslips for \(String(summary.year))",
                         systemImage: "doc.text.magnifyingglass",
                         description: Text("Upload payslips to generate a tax year summary")
                     )
@@ -478,7 +478,7 @@ struct TaxInsightsView: View {
             }
 
             // Payslip count note
-            Text("\(summary.payslipCount) payslip\(summary.payslipCount == 1 ? "" : "s") for \(summary.year)")
+            Text(verbatim: "\(summary.payslipCount) payslip\(summary.payslipCount == 1 ? "" : "s") for \(summary.year)")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -541,8 +541,8 @@ struct TaxInsightsView: View {
 
         // Build a virtual "transaction-like" representation for the PDF
         // Instead, generate a custom summary text and use the PDF engine
-        let title = "Tax Year Summary — \(summary.year)"
-        let dateRange = "January 1 – December 31, \(summary.year)"
+        let title = "Tax Year Summary — \(String(summary.year))"
+        let dateRange = "January 1 – December 31, \(String(summary.year))"
 
         // Create pseudo-transactions from monthly data for the PDF table
         var summaryTransactions: [Transaction] = []

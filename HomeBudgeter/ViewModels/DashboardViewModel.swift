@@ -8,9 +8,12 @@ class DashboardViewModel {
     var monthlyExpenses: Decimal = 0
     var netWorth: Decimal = 0
     var pensionValue: Decimal = 0
+    var investmentValue: Decimal = 0
     var budgetCategories: [BudgetCategory] = []
     var recentTransactions: [Transaction] = []
     var selectedPeriod: TimePeriod = .month
+    var selectedMember: HouseholdMember?
+    var householdMembers: [HouseholdMember] = []
     var categorySpending: [CategorySpendingData] = []
     var monthlyTrend: [MonthlyTrendData] = []
 
@@ -54,13 +57,24 @@ class DashboardViewModel {
     }
 
     func loadData(modelContext: ModelContext) {
+        loadHouseholdMembers(modelContext: modelContext)
         loadMonthlyData(modelContext: modelContext)
         loadNetWorth(modelContext: modelContext)
         loadPensionData(modelContext: modelContext)
+        loadInvestmentData(modelContext: modelContext)
         loadBudgetCategories(modelContext: modelContext)
         loadRecentTransactions(modelContext: modelContext)
         loadCategorySpending(modelContext: modelContext)
         loadMonthlyTrend(modelContext: modelContext)
+    }
+
+    private func loadHouseholdMembers(modelContext: ModelContext) {
+        let descriptor = FetchDescriptor<HouseholdMember>(sortBy: [SortDescriptor(\.name)])
+        do {
+            householdMembers = try modelContext.fetch(descriptor)
+        } catch {
+            print("Error loading household members: \(error)")
+        }
     }
 
     private func loadMonthlyData(modelContext: ModelContext) {
@@ -69,20 +83,34 @@ class DashboardViewModel {
         let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: now))!
         let endOfMonth = calendar.date(byAdding: .month, value: 1, to: startOfMonth)!
 
-        let descriptor = FetchDescriptor<Transaction>(
+        let transactionDescriptor = FetchDescriptor<Transaction>(
             predicate: #Predicate { transaction in
                 transaction.date >= startOfMonth && transaction.date < endOfMonth
             }
         )
 
+        let payslipDescriptor = FetchDescriptor<Payslip>(
+            predicate: #Predicate { payslip in
+                payslip.payDate >= startOfMonth && payslip.payDate < endOfMonth
+            }
+        )
+
         do {
-            let transactions = try modelContext.fetch(descriptor)
-            monthlyIncome = transactions
+            var transactions = try modelContext.fetch(transactionDescriptor)
+            var payslips = try modelContext.fetch(payslipDescriptor)
+            if let member = selectedMember {
+                transactions = transactions.filter { $0.account?.owner?.id == member.id }
+                payslips = payslips.filter { $0.member?.id == member.id }
+            }
+            let transactionIncome = transactions
                 .filter { $0.type == .income }
-                .reduce(0) { $0 + $1.amount }
+                .reduce(Decimal.zero) { $0 + $1.amount }
+            let payslipIncome = payslips
+                .reduce(Decimal.zero) { $0 + $1.netPay }
+            monthlyIncome = transactionIncome + payslipIncome
             monthlyExpenses = transactions
                 .filter { $0.type == .expense }
-                .reduce(0) { $0 + $1.amount }
+                .reduce(Decimal.zero) { $0 + $1.amount }
         } catch {
             print("Error loading monthly data: \(error)")
         }
@@ -96,7 +124,10 @@ class DashboardViewModel {
         )
 
         do {
-            let accounts = try modelContext.fetch(descriptor)
+            var accounts = try modelContext.fetch(descriptor)
+            if let member = selectedMember {
+                accounts = accounts.filter { $0.owner?.id == member.id }
+            }
             netWorth = accounts.reduce(0) { result, account in
                 if account.isAsset {
                     return result + account.balance
@@ -104,8 +135,23 @@ class DashboardViewModel {
                     return result - abs(account.balance)
                 }
             }
+            // Include investment portfolio value in net worth
+            netWorth += investmentValue
         } catch {
             print("Error loading net worth: \(error)")
+        }
+    }
+
+    private func loadInvestmentData(modelContext: ModelContext) {
+        let descriptor = FetchDescriptor<Investment>()
+        do {
+            var investments = try modelContext.fetch(descriptor)
+            if let member = selectedMember {
+                investments = investments.filter { $0.owner?.id == member.id }
+            }
+            investmentValue = investments.reduce(Decimal.zero) { $0 + $1.currentValue }
+        } catch {
+            print("Error loading investment data: \(error)")
         }
     }
 
@@ -182,24 +228,31 @@ class DashboardViewModel {
 
             let monthName = dateFormatter.string(from: monthDate)
 
-            let predicate = #Predicate<Transaction> { transaction in
+            let transactionPredicate = #Predicate<Transaction> { transaction in
                 transaction.date >= startOfMonth && transaction.date <= endOfMonth
             }
+            let payslipPredicate = #Predicate<Payslip> { payslip in
+                payslip.payDate >= startOfMonth && payslip.payDate <= endOfMonth
+            }
 
-            let descriptor = FetchDescriptor<Transaction>(predicate: predicate)
+            let transactionDescriptor = FetchDescriptor<Transaction>(predicate: transactionPredicate)
+            let payslipDescriptor = FetchDescriptor<Payslip>(predicate: payslipPredicate)
 
             do {
-                let transactions = try modelContext.fetch(descriptor)
+                let transactions = try modelContext.fetch(transactionDescriptor)
+                let payslips = try modelContext.fetch(payslipDescriptor)
 
-                let income = transactions
+                let transactionIncome = transactions
                     .filter { $0.type == .income }
                     .reduce(0.0) { $0 + Double(truncating: $1.amount as NSNumber) }
+                let payslipIncome = payslips
+                    .reduce(0.0) { $0 + Double(truncating: $1.netPay as NSNumber) }
 
                 let expenses = transactions
                     .filter { $0.type == .expense }
                     .reduce(0.0) { $0 + Double(truncating: $1.amount as NSNumber) }
 
-                trends.append(MonthlyTrendData(month: monthName, amount: income, type: "Income"))
+                trends.append(MonthlyTrendData(month: monthName, amount: transactionIncome + payslipIncome, type: "Income"))
                 trends.append(MonthlyTrendData(month: monthName, amount: expenses, type: "Expense"))
             } catch {
                 print("Error loading monthly trend: \(error)")

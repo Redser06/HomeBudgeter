@@ -11,6 +11,21 @@ import SwiftData
 class PersistenceController: ObservableObject {
     static let shared = PersistenceController()
 
+    static let appSchema = Schema([
+        Transaction.self,
+        BudgetCategory.self,
+        Account.self,
+        SavingsGoal.self,
+        Document.self,
+        Payslip.self,
+        PensionData.self,
+        RecurringTemplate.self,
+        BillLineItem.self,
+        HouseholdMember.self,
+        Investment.self,
+        InvestmentTransaction.self
+    ])
+
     let modelContainer: ModelContainer
 
     static var preview: PersistenceController = {
@@ -18,22 +33,32 @@ class PersistenceController: ObservableObject {
         return controller
     }()
 
-    init(inMemory: Bool = false) {
-        let schema = Schema([
-            Transaction.self,
-            BudgetCategory.self,
-            Account.self,
-            SavingsGoal.self,
-            Document.self,
-            Payslip.self,
-            PensionData.self,
-            RecurringTemplate.self
-        ])
+    static var iCloudSyncEnabled: Bool {
+        UserDefaults.standard.bool(forKey: "iCloudSyncEnabled")
+    }
 
-        let modelConfiguration = ModelConfiguration(
-            schema: schema,
-            isStoredInMemoryOnly: inMemory
-        )
+    init(inMemory: Bool = false) {
+        let schema = PersistenceController.appSchema
+
+        let modelConfiguration: ModelConfiguration
+
+        if inMemory {
+            modelConfiguration = ModelConfiguration(
+                schema: schema,
+                isStoredInMemoryOnly: true
+            )
+        } else if PersistenceController.iCloudSyncEnabled {
+            modelConfiguration = ModelConfiguration(
+                schema: schema,
+                isStoredInMemoryOnly: false,
+                cloudKitDatabase: .private("iCloud.com.homebudgeter.app")
+            )
+        } else {
+            modelConfiguration = ModelConfiguration(
+                schema: schema,
+                isStoredInMemoryOnly: false
+            )
+        }
 
         do {
             modelContainer = try ModelContainer(

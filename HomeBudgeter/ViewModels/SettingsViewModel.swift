@@ -87,6 +87,11 @@ final class SettingsViewModel {
         didSet { UserDefaults.standard.set(autoParseBills, forKey: Keys.autoParseBills) }
     }
 
+    /// Whether iCloud sync is enabled. Requires app restart to take effect.
+    var iCloudSyncEnabled: Bool {
+        didSet { UserDefaults.standard.set(iCloudSyncEnabled, forKey: Keys.iCloudSyncEnabled) }
+    }
+
     // MARK: - Enumerations
 
     enum DarkModePreference: String, CaseIterable {
@@ -214,6 +219,8 @@ final class SettingsViewModel {
             self.autoParseBills = UserDefaults.standard.bool(forKey: Keys.autoParseBills)
         }
 
+        self.iCloudSyncEnabled = UserDefaults.standard.bool(forKey: Keys.iCloudSyncEnabled)
+
         // Ensure CurrencyFormatter is aligned with the restored locale.
         CurrencyFormatter.shared.setLocale(selectedLocale)
     }
@@ -235,6 +242,7 @@ final class SettingsViewModel {
         preferredAIProvider      = .claude
         autoParsePayslips        = true
         autoParseBills           = true
+        iCloudSyncEnabled        = false
     }
 
     /// Removes the encryption key from the Keychain.
@@ -294,6 +302,7 @@ final class SettingsViewModel {
         static let preferredAIProvider     = "preferredAIProvider"
         static let autoParsePayslips       = "autoParsePayslips"
         static let autoParseBills          = "autoParseBills"
+        static let iCloudSyncEnabled       = "iCloudSyncEnabled"
     }
 }
 

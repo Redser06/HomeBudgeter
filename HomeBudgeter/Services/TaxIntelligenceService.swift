@@ -294,7 +294,7 @@ class TaxIntelligenceService {
 
     // MARK: - AI Insights
 
-    private struct AIInsightResult {
+    struct AIInsightResult {
         let summary: String
         let insights: [TaxInsight]
     }
@@ -369,14 +369,21 @@ class TaxIntelligenceService {
         """
     }
 
-    private func parseAIResponse(_ response: String) -> AIInsightResult {
-        // Try to parse JSON from the response
-        guard let jsonData = response.data(using: .utf8),
+    func parseAIResponse(_ response: String) -> AIInsightResult {
+        // Strip markdown code fences (```json ... ```) that LLMs commonly wrap responses in
+        let cleaned = stripMarkdownCodeFences(response)
+
+        guard let jsonData = cleaned.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
-            return AIInsightResult(summary: response, insights: [])
+            // If JSON parsing still fails, don't show raw JSON — provide a generic fallback
+            let looksLikeJSON = cleaned.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("{")
+            let fallbackSummary = looksLikeJSON
+                ? "AI analysis completed. See insights below for details."
+                : response
+            return AIInsightResult(summary: fallbackSummary, insights: [])
         }
 
-        let summary = json["summary"] as? String ?? response
+        let summary = json["summary"] as? String ?? "AI analysis completed. See insights below for details."
 
         var insights: [TaxInsight] = []
         if let insightsArray = json["insights"] as? [[String: Any]] {
@@ -458,6 +465,21 @@ class TaxIntelligenceService {
     }
 
     // MARK: - Helpers
+
+    func stripMarkdownCodeFences(_ text: String) -> String {
+        var result = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Remove opening fence like ```json or ```
+        if result.hasPrefix("```") {
+            if let newlineIndex = result.firstIndex(of: "\n") {
+                result = String(result[result.index(after: newlineIndex)...])
+            }
+        }
+        // Remove closing fence
+        if result.hasSuffix("```") {
+            result = String(result.dropLast(3))
+        }
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
     private func emptyBreakdown() -> TaxBreakdown {
         TaxBreakdown(

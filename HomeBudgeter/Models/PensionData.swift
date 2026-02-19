@@ -13,6 +13,7 @@ final class PensionData {
     var lastUpdated: Date
     var provider: String?
     var notes: String?
+    var member: HouseholdMember?
     var createdAt: Date
 
     init(

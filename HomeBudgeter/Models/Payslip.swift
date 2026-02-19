@@ -19,6 +19,8 @@ final class Payslip {
     var notes: String?
     var createdAt: Date
 
+    var member: HouseholdMember?
+
     @Relationship(deleteRule: .nullify, inverse: \Document.linkedPayslip)
     var sourceDocument: Document?
 
