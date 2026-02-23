@@ -14,6 +14,7 @@ final class BillLineItem {
     var billType: BillType
     var amount: Decimal
     var label: String?
+    var provider: String?
 
     var transaction: Transaction?
 
@@ -21,12 +22,14 @@ final class BillLineItem {
         billType: BillType,
         amount: Decimal,
         label: String? = nil,
+        provider: String? = nil,
         transaction: Transaction? = nil
     ) {
         self.id = UUID()
         self.billType = billType
         self.amount = amount
         self.label = label
+        self.provider = provider
         self.transaction = transaction
     }
 }

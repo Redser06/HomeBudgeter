@@ -28,6 +28,13 @@ struct PensionView: View {
 
                 if viewModel.pensionData != nil {
                     Button {
+                        viewModel.showingFileImporter = true
+                    } label: {
+                        Label("Upload Statement", systemImage: "doc.badge.plus")
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button {
                         viewModel.showingEditSheet = true
                     } label: {
                         Label("Edit", systemImage: "pencil")
@@ -59,6 +66,33 @@ struct PensionView: View {
         }
         .sheet(isPresented: $viewModel.showingEditSheet) {
             PensionEditSheet(viewModel: viewModel, modelContext: modelContext)
+        }
+        .sheet(isPresented: $viewModel.showingStatementReview) {
+            PensionStatementReviewSheet(viewModel: viewModel, modelContext: modelContext)
+        }
+        .fileImporter(
+            isPresented: $viewModel.showingFileImporter,
+            allowedContentTypes: [.pdf],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                if let url = urls.first {
+                    Task {
+                        await viewModel.importStatementFile(from: url, modelContext: modelContext)
+                    }
+                }
+            case .failure(let error):
+                viewModel.importError = error.localizedDescription
+            }
+        }
+        .alert("Import Error", isPresented: .init(
+            get: { viewModel.importError != nil },
+            set: { if !$0 { viewModel.importError = nil } }
+        )) {
+            Button("OK") { viewModel.importError = nil }
+        } message: {
+            Text(viewModel.importError ?? "")
         }
     }
 }
@@ -618,6 +652,32 @@ struct PensionDetailsSection: View {
                         .font(.subheadline)
                 }
             }
+
+            if let documents = viewModel.pensionData?.sourceDocuments, !documents.isEmpty {
+                Divider()
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Linked Documents")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    ForEach(documents, id: \.id) { document in
+                        HStack {
+                            Image(systemName: "doc.fill")
+                                .foregroundColor(.primaryBlue)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(document.filename)
+                                    .font(.subheadline)
+                                Text(document.formattedUploadDate)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Text(document.formattedFileSize)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            }
         }
         .padding()
         .background(Color(.controlBackgroundColor))
@@ -864,6 +924,111 @@ struct PensionEditSheet: View {
         }
         .padding()
         .frame(width: 480, height: 640)
+    }
+}
+
+// MARK: - Statement Review Sheet
+
+struct PensionStatementReviewSheet: View {
+    var viewModel: PensionViewModel
+    var modelContext: ModelContext
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 20) {
+            HStack {
+                Image(systemName: "doc.text.magnifyingglass")
+                    .font(.title)
+                    .foregroundColor(.white)
+                    .frame(width: 56, height: 56)
+                    .background(Color.primaryBlue)
+                    .cornerRadius(12)
+
+                VStack(alignment: .leading) {
+                    Text("Review Statement Data")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    if let doc = viewModel.importedDocument {
+                        Text(doc.filename)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                Spacer()
+            }
+
+            if viewModel.isParsing {
+                VStack(spacing: 12) {
+                    ProgressView()
+                        .controlSize(.large)
+                    Text("Parsing pension statement...")
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let error = viewModel.parsingError {
+                VStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.largeTitle)
+                        .foregroundColor(.budgetDanger)
+                    Text("Parsing Failed")
+                        .font(.headline)
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let data = viewModel.parsedStatementData {
+                Form {
+                    Section("Extracted Values") {
+                        LabeledContent("Current Value",
+                            value: data.currentValue.map { CurrencyFormatter.shared.format(Double(truncating: (Decimal(string: $0) ?? 0) as NSNumber)) } ?? "Not found")
+                        LabeledContent("Employee Contributions",
+                            value: data.totalEmployeeContributions.map { CurrencyFormatter.shared.format(Double(truncating: (Decimal(string: $0) ?? 0) as NSNumber)) } ?? "Not found")
+                        LabeledContent("Employer Contributions",
+                            value: data.totalEmployerContributions.map { CurrencyFormatter.shared.format(Double(truncating: (Decimal(string: $0) ?? 0) as NSNumber)) } ?? "Not found")
+                        LabeledContent("Investment Returns",
+                            value: data.totalInvestmentReturns.map { CurrencyFormatter.shared.format(Double(truncating: (Decimal(string: $0) ?? 0) as NSNumber)) } ?? "Not found")
+                    }
+
+                    Section("Details") {
+                        LabeledContent("Provider", value: data.provider ?? "Not found")
+                        LabeledContent("Statement Date", value: data.statementDate ?? "Not found")
+                        if let confidence = data.confidence {
+                            LabeledContent("Confidence", value: String(format: "%.0f%%", confidence * 100))
+                        }
+                    }
+                }
+                .formStyle(.grouped)
+            } else {
+                VStack(spacing: 12) {
+                    Image(systemName: "doc.questionmark")
+                        .font(.largeTitle)
+                        .foregroundColor(.secondary)
+                    Text("No parsed data available")
+                        .font(.headline)
+                    Text("The statement could not be automatically parsed. You can update your pension details manually.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+
+            HStack {
+                Button("Cancel") { dismiss() }
+                    .buttonStyle(.bordered)
+
+                if viewModel.parsedStatementData != nil {
+                    Button("Apply to Pension") {
+                        viewModel.applyParsedStatement(modelContext: modelContext)
+                        dismiss()
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+        }
+        .padding()
+        .frame(width: 500, height: 520)
     }
 }
 

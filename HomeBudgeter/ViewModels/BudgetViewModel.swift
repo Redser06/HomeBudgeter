@@ -145,7 +145,7 @@ class BudgetViewModel {
         let categoryType = CategoryType.allCases.first { $0.rawValue == name } ?? .other
         let category = BudgetCategory(
             type: categoryType,
-            budgetAmount: Decimal(amount),
+            budgetAmount: Decimal(string: String(amount)) ?? 0,
             period: .monthly
         )
         modelContext.insert(category)
@@ -158,7 +158,7 @@ class BudgetViewModel {
     }
 
     func updateBudget(_ budget: BudgetCategory, name: String, amount: Double, modelContext: ModelContext) {
-        budget.budgetAmount = Decimal(amount)
+        budget.budgetAmount = Decimal(string: String(amount)) ?? 0
         if let categoryType = CategoryType.allCases.first(where: { $0.rawValue == name }) {
             budget.type = categoryType
         }

@@ -77,7 +77,7 @@ struct BudgetView: View {
                                     selectedBudget = category
                                 },
                                 onBudgetUpdate: { newAmount in
-                                    viewModel.updateBudget(for: category, amount: Decimal(newAmount), modelContext: modelContext)
+                                    viewModel.updateBudget(for: category, amount: Decimal(string: String(newAmount)) ?? 0, modelContext: modelContext)
                                 }
                             )
                         }

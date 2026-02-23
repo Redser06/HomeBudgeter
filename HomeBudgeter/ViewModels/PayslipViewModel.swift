@@ -61,6 +61,19 @@ class PayslipViewModel {
         return totalNetYTD / Decimal(filteredPayslips.count)
     }
 
+    var totalHealthInsuranceYTD: Decimal {
+        filteredPayslips.reduce(0) { $0 + $1.healthInsurancePremium }
+    }
+
+    var totalAllTaxYTD: Decimal {
+        filteredPayslips.reduce(0) { $0 + $1.incomeTax + $1.socialInsurance + ($1.universalCharge ?? 0) }
+    }
+
+    var effectiveTaxRate: Double {
+        guard totalGrossYTD > 0 else { return 0 }
+        return Double(truncating: (totalAllTaxYTD / totalGrossYTD) as NSNumber) * 100
+    }
+
     var availableYears: [Int] {
         let years = Set(payslips.map { Calendar.current.component(.year, from: $0.payDate) })
         return years.sorted().reversed()
@@ -113,6 +126,7 @@ class PayslipViewModel {
         pensionContribution: Decimal,
         employerPensionContribution: Decimal,
         otherDeductions: Decimal,
+        healthInsurancePremium: Decimal = 0,
         employer: String?,
         notes: String?,
         modelContext: ModelContext
@@ -129,6 +143,7 @@ class PayslipViewModel {
             pensionContribution: pensionContribution,
             employerPensionContribution: employerPensionContribution,
             otherDeductions: otherDeductions,
+            healthInsurancePremium: healthInsurancePremium,
             employer: employer
         )
         payslip.notes = notes

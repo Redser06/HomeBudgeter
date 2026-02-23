@@ -15,6 +15,7 @@ final class Payslip {
     var pensionContribution: Decimal
     var employerPensionContribution: Decimal
     var otherDeductions: Decimal
+    var healthInsurancePremium: Decimal
     var employer: String?
     var notes: String?
     var createdAt: Date
@@ -36,6 +37,7 @@ final class Payslip {
         pensionContribution: Decimal = 0,
         employerPensionContribution: Decimal = 0,
         otherDeductions: Decimal = 0,
+        healthInsurancePremium: Decimal = 0,
         employer: String? = nil
     ) {
         self.id = UUID()
@@ -50,12 +52,13 @@ final class Payslip {
         self.pensionContribution = pensionContribution
         self.employerPensionContribution = employerPensionContribution
         self.otherDeductions = otherDeductions
+        self.healthInsurancePremium = healthInsurancePremium
         self.employer = employer
         self.createdAt = Date()
     }
 
     var totalDeductions: Decimal {
-        incomeTax + socialInsurance + (universalCharge ?? 0) + pensionContribution + otherDeductions
+        incomeTax + socialInsurance + (universalCharge ?? 0) + pensionContribution + otherDeductions + healthInsurancePremium
     }
 
     var totalPensionContribution: Decimal {

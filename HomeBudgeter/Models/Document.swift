@@ -41,6 +41,7 @@ final class Document {
     var linkedTransaction: Transaction?
 
     var linkedPayslip: Payslip?
+    var linkedPension: PensionData?
 
     init(
         filename: String,

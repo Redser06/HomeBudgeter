@@ -116,6 +116,13 @@ struct BillsView: View {
                     .cornerRadius(8)
                 }
 
+                Picker("Group by", selection: $viewModel.groupByProvider) {
+                    Text("Date").tag(false)
+                    Text("Provider").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 180)
+
                 Spacer()
 
                 Text("\(viewModel.filteredBills.count) bill\(viewModel.filteredBills.count == 1 ? "" : "s")")
@@ -135,6 +142,29 @@ struct BillsView: View {
                             description: Text("Add your first bill to start tracking expenses")
                         )
                         .padding(.top, 60)
+                    } else if viewModel.groupByProvider {
+                        ForEach(viewModel.billsGroupedByProvider, id: \.provider) { group in
+                            Section {
+                                ForEach(group.bills) { bill in
+                                    BillRow(bill: bill) {
+                                        viewModel.selectedBill = bill
+                                    }
+                                }
+                            } header: {
+                                HStack {
+                                    Text(group.provider)
+                                        .font(.headline)
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                    Text(CurrencyFormatter.shared.format(
+                                        Double(truncating: group.bills.reduce(Decimal.zero) { $0 + $1.amount } as NSNumber)
+                                    ))
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                }
+                                .padding(.top, 8)
+                            }
+                        }
                     } else {
                         ForEach(viewModel.billsGroupedByMonth, id: \.month) { group in
                             Section {
@@ -345,6 +375,7 @@ struct LineItemEntry: Identifiable {
     var billType: BillType = .other
     var amount: Double = 0
     var label: String = ""
+    var provider: String = ""
 }
 
 // MARK: - Add Bill Sheet
@@ -500,6 +531,9 @@ struct AddBillSheet: View {
                                 TextField("Label", text: $item.label)
                                     .frame(width: 100)
 
+                                TextField("Provider", text: $item.provider)
+                                    .frame(width: 100)
+
                                 Button {
                                     lineItems.removeAll { $0.id == item.id }
                                 } label: {
@@ -584,12 +618,13 @@ struct AddBillSheet: View {
                 .buttonStyle(.bordered)
 
                 Button("Add Bill") {
-                    let resolvedLineItems: [(billType: BillType, amount: Decimal, label: String?)] =
+                    let resolvedLineItems: [(billType: BillType, amount: Decimal, label: String?, provider: String?)] =
                         useLineItems ? lineItems.map { entry in
                             (
                                 billType: entry.billType,
                                 amount: Decimal(string: String(format: "%.2f", entry.amount)) ?? 0,
-                                label: entry.label.isEmpty ? nil : entry.label
+                                label: entry.label.isEmpty ? nil : entry.label,
+                                provider: entry.provider.isEmpty ? nil : entry.provider
                             )
                         } : []
 
@@ -806,6 +841,14 @@ struct BillDetailSheet: View {
                                         Text(label)
                                             .font(.caption)
                                             .foregroundColor(.secondary)
+                                    }
+                                    if let provider = item.provider, !provider.isEmpty {
+                                        Text(provider)
+                                            .font(.caption2)
+                                            .padding(.horizontal, 4)
+                                            .padding(.vertical, 1)
+                                            .background(Color.gray.opacity(0.15))
+                                            .cornerRadius(3)
                                     }
                                     Spacer()
                                     Text(CurrencyFormatter.shared.format(

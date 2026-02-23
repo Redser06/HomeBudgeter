@@ -111,4 +111,36 @@ final class BillMigrationService {
 
         try? modelContext.save()
     }
+
+    // MARK: - Provider Migration
+
+    private static let providerMigrationKey = "billProviderMigrationV1"
+
+    @MainActor
+    func migrateProvidersIfNeeded(modelContext: ModelContext) {
+        guard !UserDefaults.standard.bool(forKey: Self.providerMigrationKey) else { return }
+
+        migrateProviders(modelContext: modelContext)
+
+        UserDefaults.standard.set(true, forKey: Self.providerMigrationKey)
+    }
+
+    @MainActor
+    func migrateProviders(modelContext: ModelContext) {
+        let descriptor = FetchDescriptor<BillLineItem>(
+            predicate: #Predicate<BillLineItem> { item in
+                item.provider == nil
+            }
+        )
+
+        guard let items = try? modelContext.fetch(descriptor) else { return }
+
+        for item in items {
+            if let transaction = item.transaction {
+                item.provider = transaction.descriptionText
+            }
+        }
+
+        try? modelContext.save()
+    }
 }

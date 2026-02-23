@@ -19,6 +19,9 @@ struct HomeBudgeterApp: App {
                     BillMigrationService.shared.migrateIfNeeded(
                         modelContext: sharedModelContainer.mainContext
                     )
+                    BillMigrationService.shared.migrateProvidersIfNeeded(
+                        modelContext: sharedModelContainer.mainContext
+                    )
                 }
                 .task {
                     _ = await NotificationService.shared.requestPermission()

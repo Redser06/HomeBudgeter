@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftData
+import UniformTypeIdentifiers
 
 // MARK: - Contribution Chart Data
 
@@ -26,6 +27,13 @@ class PensionViewModel {
     var contributionHistory: [PensionContributionData] = []
     var showingEditSheet: Bool = false
     var showingSetupSheet: Bool = false
+    var showingFileImporter: Bool = false
+    var showingStatementReview: Bool = false
+    var importedDocument: Document?
+    var importError: String?
+    var parsedStatementData: ParsedPensionStatementData?
+    var isParsing: Bool = false
+    var parsingError: String?
 
     // MARK: - Computed Properties
 
@@ -187,6 +195,133 @@ class PensionViewModel {
         pension.notes = notes
         pension.lastUpdated = Date()
         try? modelContext.save()
+        loadPensionData(modelContext: modelContext)
+    }
+
+    // MARK: - Statement File Import
+
+    func importStatementFile(from url: URL, modelContext: ModelContext) async {
+        guard url.startAccessingSecurityScopedResource() else {
+            await MainActor.run { importError = "Could not access the file" }
+            return
+        }
+        defer { url.stopAccessingSecurityScopedResource() }
+
+        do {
+            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+            let fileSize = attributes[.size] as? Int64 ?? 0
+
+            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("HomeBudgeter")
+                .appendingPathComponent("Documents")
+            try FileManager.default.createDirectory(at: documentsPath, withIntermediateDirectories: true)
+
+            let destinationURL = documentsPath.appendingPathComponent(UUID().uuidString + "_" + url.lastPathComponent)
+            try FileManager.default.copyItem(at: url, to: destinationURL)
+
+            var finalURL = destinationURL
+            var finalSize = fileSize
+            let isEncryptionEnabled = UserDefaults.standard.bool(forKey: "encryptDocuments")
+            if isEncryptionEnabled {
+                let fileData = try Data(contentsOf: destinationURL)
+                let encryptedData = try FileEncryptionService.shared.encrypt(data: fileData)
+                let encryptedURL = destinationURL.appendingPathExtension("encrypted")
+                try encryptedData.write(to: encryptedURL)
+                try FileManager.default.removeItem(at: destinationURL)
+                finalURL = encryptedURL
+                finalSize = Int64(encryptedData.count)
+            }
+
+            let mimeType = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+
+            let document = Document(
+                filename: url.lastPathComponent,
+                localPath: finalURL.path,
+                documentType: .statement,
+                fileSize: finalSize,
+                mimeType: mimeType
+            )
+
+            await MainActor.run {
+                modelContext.insert(document)
+                try? modelContext.save()
+                importedDocument = document
+            }
+
+            let autoParseEnabled = UserDefaults.standard.object(forKey: "autoParsePayslips") == nil
+                ? true
+                : UserDefaults.standard.bool(forKey: "autoParsePayslips")
+
+            if autoParseEnabled && document.mimeType == "application/pdf" {
+                await parseImportedDocument(document, modelContext: modelContext)
+            }
+
+            await MainActor.run {
+                showingStatementReview = true
+            }
+        } catch {
+            await MainActor.run { importError = error.localizedDescription }
+        }
+    }
+
+    func parseImportedDocument(_ document: Document, modelContext: ModelContext) async {
+        await MainActor.run {
+            isParsing = true
+            parsingError = nil
+            parsedStatementData = nil
+        }
+
+        do {
+            let result = try await PayslipParsingService.shared.parsePensionStatement(document)
+            await MainActor.run {
+                parsedStatementData = result
+                isParsing = false
+                document.isProcessed = true
+                if let jsonData = try? JSONEncoder().encode(result),
+                   let jsonString = String(data: jsonData, encoding: .utf8) {
+                    document.extractedData = jsonString
+                }
+                try? modelContext.save()
+            }
+        } catch {
+            await MainActor.run {
+                isParsing = false
+                parsingError = error.localizedDescription
+            }
+        }
+    }
+
+    func applyParsedStatement(modelContext: ModelContext) {
+        guard let data = parsedStatementData, let pension = pensionData else { return }
+
+        let newValue = ParsedPensionStatementData.toDecimal(data.currentValue)
+        if newValue > 0 { pension.currentValue = newValue }
+
+        let employeeContribs = ParsedPensionStatementData.toDecimal(data.totalEmployeeContributions)
+        if employeeContribs > 0 { pension.totalEmployeeContributions = employeeContribs }
+
+        let employerContribs = ParsedPensionStatementData.toDecimal(data.totalEmployerContributions)
+        if employerContribs > 0 { pension.totalEmployerContributions = employerContribs }
+
+        let returns = ParsedPensionStatementData.toDecimal(data.totalInvestmentReturns)
+        if returns != 0 { pension.totalInvestmentReturns = returns }
+
+        if let provider = data.provider, !provider.isEmpty {
+            pension.provider = provider
+        }
+
+        pension.lastUpdated = Date()
+
+        if let document = importedDocument {
+            if pension.sourceDocuments == nil {
+                pension.sourceDocuments = []
+            }
+            pension.sourceDocuments?.append(document)
+        }
+
+        try? modelContext.save()
+        parsedStatementData = nil
+        importedDocument = nil
         loadPensionData(modelContext: modelContext)
     }
 }

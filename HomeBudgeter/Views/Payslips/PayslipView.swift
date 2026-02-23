@@ -43,7 +43,8 @@ struct PayslipView: View {
             .padding()
 
             // Overview Cards
-            HStack(spacing: 16) {
+            let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
+            LazyVGrid(columns: columns, spacing: 12) {
                 PayslipOverviewCard(
                     title: "Total Gross YTD",
                     amount: Double(truncating: viewModel.totalGrossYTD as NSNumber),
@@ -57,16 +58,28 @@ struct PayslipView: View {
                     color: .budgetHealthy
                 )
                 PayslipOverviewCard(
-                    title: "Total Tax YTD",
-                    amount: Double(truncating: viewModel.totalTaxYTD as NSNumber),
-                    subtitle: "Income tax paid",
-                    color: .budgetDanger
-                )
-                PayslipOverviewCard(
                     title: "Average Net",
                     amount: Double(truncating: viewModel.averageNetPay as NSNumber),
                     subtitle: "Per payslip",
                     color: .budgetWarning
+                )
+                PayslipOverviewCard(
+                    title: "Income Tax YTD",
+                    amount: Double(truncating: viewModel.totalTaxYTD as NSNumber),
+                    subtitle: "PAYE only",
+                    color: .budgetDanger
+                )
+                PayslipOverviewCard(
+                    title: "Total Tax Paid YTD",
+                    amount: Double(truncating: viewModel.totalAllTaxYTD as NSNumber),
+                    subtitle: "PAYE + PRSI + USC",
+                    color: .budgetDanger.opacity(0.85)
+                )
+                PayslipPercentageCard(
+                    title: "Effective Tax Rate",
+                    percentage: viewModel.effectiveTaxRate,
+                    subtitle: "All taxes / gross",
+                    color: .orange
                 )
             }
             .padding(.horizontal)
@@ -204,6 +217,36 @@ struct PayslipOverviewCard: View {
     }
 }
 
+// MARK: - Percentage Card
+
+struct PayslipPercentageCard: View {
+    let title: String
+    let percentage: Double
+    let subtitle: String
+    let color: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+
+            Text(String(format: "%.1f%%", percentage))
+                .font(.system(.title, design: .monospaced))
+                .fontWeight(.bold)
+                .foregroundColor(color)
+
+            Text(subtitle)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color(.controlBackgroundColor))
+        .cornerRadius(12)
+    }
+}
+
 // MARK: - Payslip Row
 
 struct PayslipRow: View {
@@ -286,6 +329,7 @@ struct AddPayslipSheet: View {
     @State private var pensionContribution: Double = 0
     @State private var employerPensionContribution: Double = 0
     @State private var otherDeductions: Double = 0
+    @State private var healthInsurancePremium: Double = 0
     @State private var employer: String = ""
     @State private var notes: String = ""
 
@@ -435,6 +479,14 @@ struct AddPayslipSheet: View {
                     }
 
                     HStack {
+                        Text("Health Insurance")
+                        Spacer()
+                        TextField("Amount", value: $healthInsurancePremium, format: .currency(code: currencyCode))
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 140)
+                    }
+
+                    HStack {
                         Text("Other Deductions")
                         Spacer()
                         TextField("Amount", value: $otherDeductions, format: .currency(code: currencyCode))
@@ -480,14 +532,15 @@ struct AddPayslipSheet: View {
                         payDate: payDate,
                         payPeriodStart: payPeriodStart,
                         payPeriodEnd: payPeriodEnd,
-                        grossPay: Decimal(grossPay),
-                        netPay: Decimal(netPay),
-                        incomeTax: Decimal(incomeTax),
-                        socialInsurance: Decimal(socialInsurance),
-                        universalCharge: hasUniversalCharge ? Decimal(universalCharge) : nil,
-                        pensionContribution: Decimal(pensionContribution),
-                        employerPensionContribution: Decimal(employerPensionContribution),
-                        otherDeductions: Decimal(otherDeductions),
+                        grossPay: Decimal(string: String(grossPay)) ?? 0,
+                        netPay: Decimal(string: String(netPay)) ?? 0,
+                        incomeTax: Decimal(string: String(incomeTax)) ?? 0,
+                        socialInsurance: Decimal(string: String(socialInsurance)) ?? 0,
+                        universalCharge: hasUniversalCharge ? Decimal(string: String(universalCharge)) ?? 0 : nil,
+                        pensionContribution: Decimal(string: String(pensionContribution)) ?? 0,
+                        employerPensionContribution: Decimal(string: String(employerPensionContribution)) ?? 0,
+                        otherDeductions: Decimal(string: String(otherDeductions)) ?? 0,
+                        healthInsurancePremium: Decimal(string: String(healthInsurancePremium)) ?? 0,
                         employer: employer.isEmpty ? nil : employer,
                         notes: notes.isEmpty ? nil : notes,
                         modelContext: modelContext
@@ -532,6 +585,7 @@ struct AddPayslipSheet: View {
                 pensionContribution = Double(truncating: ParsedPayslipData.toDecimal(parsed.pensionContribution) as NSNumber)
                 employerPensionContribution = Double(truncating: ParsedPayslipData.toDecimal(parsed.employerPensionContribution) as NSNumber)
                 otherDeductions = Double(truncating: ParsedPayslipData.toDecimal(parsed.otherDeductions) as NSNumber)
+                healthInsurancePremium = Double(truncating: ParsedPayslipData.toDecimal(parsed.healthInsurancePremium) as NSNumber)
 
                 if let emp = parsed.employer, !emp.isEmpty {
                     employer = emp
@@ -565,6 +619,7 @@ struct PayslipDetailSheet: View {
     @State private var pensionContribution: Double
     @State private var employerPensionContribution: Double
     @State private var otherDeductions: Double
+    @State private var healthInsurancePremium: Double
     @State private var employer: String
     @State private var notes: String
 
@@ -584,6 +639,7 @@ struct PayslipDetailSheet: View {
         _pensionContribution = State(initialValue: Double(truncating: payslip.pensionContribution as NSNumber))
         _employerPensionContribution = State(initialValue: Double(truncating: payslip.employerPensionContribution as NSNumber))
         _otherDeductions = State(initialValue: Double(truncating: payslip.otherDeductions as NSNumber))
+        _healthInsurancePremium = State(initialValue: Double(truncating: payslip.healthInsurancePremium as NSNumber))
         _employer = State(initialValue: payslip.employer ?? "")
         _notes = State(initialValue: payslip.notes ?? "")
     }
@@ -666,14 +722,15 @@ struct PayslipDetailSheet: View {
                         payslip.payDate = payDate
                         payslip.payPeriodStart = payPeriodStart
                         payslip.payPeriodEnd = payPeriodEnd
-                        payslip.grossPay = Decimal(grossPay)
-                        payslip.netPay = Decimal(netPay)
-                        payslip.incomeTax = Decimal(incomeTax)
-                        payslip.socialInsurance = Decimal(socialInsurance)
-                        payslip.universalCharge = hasUniversalCharge ? Decimal(universalCharge) : nil
-                        payslip.pensionContribution = Decimal(pensionContribution)
-                        payslip.employerPensionContribution = Decimal(employerPensionContribution)
-                        payslip.otherDeductions = Decimal(otherDeductions)
+                        payslip.grossPay = Decimal(string: String(grossPay)) ?? 0
+                        payslip.netPay = Decimal(string: String(netPay)) ?? 0
+                        payslip.incomeTax = Decimal(string: String(incomeTax)) ?? 0
+                        payslip.socialInsurance = Decimal(string: String(socialInsurance)) ?? 0
+                        payslip.universalCharge = hasUniversalCharge ? Decimal(string: String(universalCharge)) ?? 0 : nil
+                        payslip.pensionContribution = Decimal(string: String(pensionContribution)) ?? 0
+                        payslip.employerPensionContribution = Decimal(string: String(employerPensionContribution)) ?? 0
+                        payslip.otherDeductions = Decimal(string: String(otherDeductions)) ?? 0
+                        payslip.healthInsurancePremium = Decimal(string: String(healthInsurancePremium)) ?? 0
                         payslip.employer = employer.isEmpty ? nil : employer
                         payslip.notes = notes.isEmpty ? nil : notes
                         viewModel.updatePayslip(payslip, modelContext: modelContext)
@@ -784,6 +841,18 @@ struct PayslipDetailSheet: View {
                             amount: Double(truncating: payslip.pensionContribution as NSNumber),
                             percentage: pensionPercentage,
                             color: .primaryBlue
+                        )
+                    }
+
+                    if payslip.healthInsurancePremium > 0 {
+                        let healthPercentage = Double(truncating: payslip.grossPay as NSNumber) > 0
+                            ? Double(truncating: payslip.healthInsurancePremium as NSNumber) / Double(truncating: payslip.grossPay as NSNumber) * 100
+                            : 0
+                        DeductionBar(
+                            label: "Health Insurance",
+                            amount: Double(truncating: payslip.healthInsurancePremium as NSNumber),
+                            percentage: healthPercentage,
+                            color: .pink
                         )
                     }
 
@@ -905,6 +974,14 @@ struct PayslipDetailSheet: View {
                             .multilineTextAlignment(.trailing)
                             .frame(width: 140)
                     }
+                }
+
+                HStack {
+                    Text("Health Insurance")
+                    Spacer()
+                    TextField("Amount", value: $healthInsurancePremium, format: .currency(code: currencyCode))
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 140)
                 }
 
                 HStack {

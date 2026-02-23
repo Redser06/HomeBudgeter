@@ -16,6 +16,9 @@ final class PensionData {
     var member: HouseholdMember?
     var createdAt: Date
 
+    @Relationship(deleteRule: .nullify, inverse: \Document.linkedPension)
+    var sourceDocuments: [Document]?
+
     init(
         currentValue: Decimal = 0,
         totalEmployeeContributions: Decimal = 0,

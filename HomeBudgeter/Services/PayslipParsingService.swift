@@ -34,7 +34,32 @@ struct ParsedPayslipData: Codable {
     let pensionContribution: String?
     let employerPensionContribution: String?
     let otherDeductions: String?
+    let healthInsurancePremium: String?
     let employer: String?
+    let confidence: Double?
+
+    static func toDecimal(_ value: String?) -> Decimal {
+        guard let v = value else { return 0 }
+        return Decimal(string: v) ?? 0
+    }
+
+    static func toDate(_ value: String?) -> Date? {
+        guard let v = value else { return nil }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withFullDate]
+        return formatter.date(from: v)
+    }
+}
+
+// MARK: - ParsedPensionStatementData
+
+struct ParsedPensionStatementData: Codable {
+    let currentValue: String?
+    let totalEmployeeContributions: String?
+    let totalEmployerContributions: String?
+    let totalInvestmentReturns: String?
+    let provider: String?
+    let statementDate: String?
     let confidence: Double?
 
     static func toDecimal(_ value: String?) -> Decimal {
@@ -457,7 +482,11 @@ final class PayslipParsingService {
         - "Employer Pension" or "ER Pension" -> employerPensionContribution
         - "Gross Pay" or "Gross" or "Total Earnings" -> grossPay
         - "Net Pay" or "Net" or "Take Home" or "Total Net Pay" -> netPay
-        - Any other deductions not covered above -> sum into otherDeductions
+        - "Health Insurance" or "Medical Insurance" or "VHI" or "Laya" or "Health Ins" \
+        or "BIK Health" or any item under "Taxable Benefits" that is health/medical related \
+        -> healthInsurancePremium
+        - Any other deductions not covered above -> sum into otherDeductions \
+        (do NOT include health insurance premium in otherDeductions)
 
         For dates, look for:
         - "Pay Date" or "Payment Date" or "Date Paid" -> payDate
@@ -489,6 +518,7 @@ final class PayslipParsingService {
           "pensionContribution": "0.00" | null,
           "employerPensionContribution": "0.00" | null,
           "otherDeductions": "0.00" | null,
+          "healthInsurancePremium": "0.00" | null,
           "employer": "string" | null,
           "confidence": 0.0
         }
@@ -591,6 +621,54 @@ final class PayslipParsingService {
         }
 
         --- BILL TEXT ---
+        \(extractedText)
+        --- END ---
+        """
+    }
+
+    // MARK: - Pension Statement Prompt
+
+    private func buildPensionStatementPrompt(for extractedText: String) -> String {
+        """
+        You are a pension statement data extraction assistant. Parse the following pension \
+        annual statement text and extract the structured financial data.
+
+        This is an Irish pension context. Common providers include:
+        - Irish Life, Zurich Life, Aviva, New Ireland, Standard Life, \
+        Canada Life, Royal London
+
+        Look for:
+        - "Fund Value" or "Current Value" or "Total Value" or "Account Value" -> currentValue
+        - "Employee Contributions" or "Member Contributions" or "Your Contributions" \
+        -> totalEmployeeContributions
+        - "Employer Contributions" or "Company Contributions" -> totalEmployerContributions
+        - "Investment Returns" or "Investment Growth" or "Fund Growth" or "Returns" \
+        -> totalInvestmentReturns
+        - The pension provider name, typically at the top or in the header -> provider
+        - "Statement Date" or "As at" or "Date" -> statementDate
+
+        All monetary values must be numbers as strings with exactly 2 decimal places \
+        (e.g. "125000.00", not "€125,000.00"). Remove any currency symbols or thousands separators.
+
+        All dates must be ISO 8601 format: "YYYY-MM-DD".
+
+        If a field cannot be found, use null.
+
+        Provide a confidence score from 0.0 to 1.0 indicating how confident you are \
+        in the overall extraction accuracy.
+
+        Respond with ONLY valid JSON, no markdown, no explanation. Use this exact schema:
+        {
+          "currentValue": "0.00" | null,
+          "totalEmployeeContributions": "0.00" | null,
+          "totalEmployerContributions": "0.00" | null,
+          "totalInvestmentReturns": "0.00" | null,
+          "provider": "string" | null,
+          "statementDate": "YYYY-MM-DD" | null,
+          "confidence": 0.0
+        }
+
+        --- PENSION STATEMENT TEXT ---
         \(extractedText)
         --- END ---
         """
@@ -738,6 +816,20 @@ final class PayslipParsingService {
         return try decodeJSON(text)
     }
 
+    // MARK: - Pension Statement API Calls
+
+    private func callClaudePensionAPI(extractedText: String) async throws -> ParsedPensionStatementData {
+        let prompt = buildPensionStatementPrompt(for: extractedText)
+        let text = try await callClaudeRaw(prompt: prompt)
+        return try decodeJSON(text)
+    }
+
+    private func callGeminiPensionAPI(extractedText: String) async throws -> ParsedPensionStatementData {
+        let prompt = buildPensionStatementPrompt(for: extractedText)
+        let text = try await callGeminiRaw(prompt: prompt)
+        return try decodeJSON(text)
+    }
+
     // MARK: - Parse Payslip Document (Public API)
 
     func parseDocument(_ document: Document) async throws -> ParsedPayslipData {
@@ -765,6 +857,21 @@ final class PayslipParsingService {
             try await self.callClaudeBillAPI(extractedText: text)
         } geminiCall: { text in
             try await self.callGeminiBillAPI(extractedText: text)
+        }
+    }
+
+    // MARK: - Parse Pension Statement (Public API)
+
+    func parsePensionStatement(_ document: Document) async throws -> ParsedPensionStatementData {
+        guard document.mimeType == "application/pdf" else {
+            throw ParsingError.unsupportedFileType
+        }
+
+        let extractedText = try extractText(fromDocumentAt: document.localPath)
+        return try await callWithFallback(extractedText: extractedText) { text in
+            try await self.callClaudePensionAPI(extractedText: text)
+        } geminiCall: { text in
+            try await self.callGeminiPensionAPI(extractedText: text)
         }
     }
 

@@ -25,6 +25,7 @@ class BillsViewModel {
     var parsingError: String?
     var detectedRecurring: RecurringBillDetector.DetectionResult?
     var showingRecurringSuggestion: Bool = false
+    var groupByProvider: Bool = false
 
     // MARK: - Bill Type Extraction
 
@@ -144,6 +145,15 @@ class BillsViewModel {
                       let rhsDate = rhs.bills.first?.date else { return false }
                 return lhsDate > rhsDate
             }
+    }
+
+    var billsGroupedByProvider: [(provider: String, bills: [Transaction])] {
+        let grouped = Dictionary(grouping: filteredBills) { transaction -> String in
+            transaction.descriptionText
+        }
+
+        return grouped.map { (provider: $0.key, bills: $0.value.sorted { $0.date > $1.date }) }
+            .sorted { $0.provider.localizedCaseInsensitiveCompare($1.provider) == .orderedAscending }
     }
 
     // MARK: - Data Methods
@@ -278,7 +288,7 @@ class BillsViewModel {
         dueDate: Date?,
         isRecurring: Bool,
         recurringFrequency: RecurringFrequency?,
-        lineItems: [(billType: BillType, amount: Decimal, label: String?)] = [],
+        lineItems: [(billType: BillType, amount: Decimal, label: String?, provider: String?)] = [],
         modelContext: ModelContext
     ) {
         // Find matching BudgetCategory
@@ -325,6 +335,7 @@ class BillsViewModel {
                     billType: item.billType,
                     amount: item.amount,
                     label: item.label,
+                    provider: item.provider ?? vendor,
                     transaction: transaction
                 )
                 modelContext.insert(lineItem)
@@ -335,6 +346,7 @@ class BillsViewModel {
                 billType: billType,
                 amount: amount,
                 label: nil,
+                provider: vendor,
                 transaction: transaction
             )
             modelContext.insert(lineItem)

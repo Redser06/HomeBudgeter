@@ -72,7 +72,7 @@ final class BillsViewModelTests: XCTestCase {
         isRecurring: Bool = false,
         recurringFrequency: RecurringFrequency? = nil,
         attachDocument: Bool = true,
-        lineItems: [(billType: BillType, amount: Decimal, label: String?)] = []
+        lineItems: [(billType: BillType, amount: Decimal, label: String?, provider: String?)] = []
     ) {
         let currentYear = Calendar.current.component(.year, from: Date())
         let billDate = date ?? makeDate(year: currentYear, month: 6, day: 15)
@@ -174,9 +174,9 @@ final class BillsViewModelTests: XCTestCase {
     func test_createBillTransaction_withLineItems_createsMultiTagNotes() {
         // Given
         let currentYear = Calendar.current.component(.year, from: Date())
-        let lineItems: [(billType: BillType, amount: Decimal, label: String?)] = [
-            (billType: .gas, amount: Decimal(string: "100.00")!, label: "Gas Supply"),
-            (billType: .electric, amount: Decimal(string: "80.00")!, label: "Electricity"),
+        let lineItems: [(billType: BillType, amount: Decimal, label: String?, provider: String?)] = [
+            (billType: .gas, amount: Decimal(string: "100.00")!, label: "Gas Supply", provider: nil),
+            (billType: .electric, amount: Decimal(string: "80.00")!, label: "Electricity", provider: nil),
         ]
 
         // When
