@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftData
+import SwiftUI
 import UniformTypeIdentifiers
 
 // MARK: - Contribution Chart Data
@@ -17,6 +18,74 @@ struct PensionContributionData: Identifiable {
     let employeeAmount: Double
     let employerAmount: Double
     var total: Double { employeeAmount + employerAmount }
+}
+
+// MARK: - Projection Types
+
+enum PensionGrowthBand: String, CaseIterable, Hashable, Identifiable {
+    case conservative
+    case moderate
+    case aggressive
+    case custom
+
+    var id: String { rawValue }
+
+    var annualRate: Double {
+        switch self {
+        case .conservative: return 3.0
+        case .moderate: return 5.0
+        case .aggressive: return 7.0
+        case .custom: return 0 // determined by user input
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .conservative: return .blue
+        case .moderate: return .orange
+        case .aggressive: return .red
+        case .custom: return .purple
+        }
+    }
+
+    var displayDescription: String {
+        switch self {
+        case .conservative: return "Conservative (3%)"
+        case .moderate: return "Moderate (5%)"
+        case .aggressive: return "Aggressive (7%)"
+        case .custom: return "Custom"
+        }
+    }
+}
+
+struct PensionYearProjection: Identifiable {
+    let id = UUID()
+    let year: Int
+    let age: Int
+    let startValue: Double
+    let contributions: Double
+    let growth: Double
+    var endValue: Double { startValue + contributions + growth }
+}
+
+struct PensionProjectionScenario: Identifiable {
+    let id = UUID()
+    let band: PensionGrowthBand
+    let annualGrowthRate: Double
+    let monthlyContribution: Double
+    let yearProjections: [PensionYearProjection]
+
+    var finalValue: Double {
+        yearProjections.last?.endValue ?? 0
+    }
+
+    var totalContributions: Double {
+        yearProjections.reduce(0) { $0 + $1.contributions }
+    }
+
+    var totalGrowth: Double {
+        yearProjections.reduce(0) { $0 + $1.growth }
+    }
 }
 
 // MARK: - PensionViewModel
@@ -34,6 +103,15 @@ class PensionViewModel {
     var parsedStatementData: ParsedPensionStatementData?
     var isParsing: Bool = false
     var parsingError: String?
+
+    // MARK: - Projection State
+
+    var projectionCurrentAge: Int = 30
+    var projectionRetirementAge: Int = 65
+    var projectionCustomGrowthRate: Double = 5.0
+    var projectionAdditionalContribution: Double = 0
+    var projectionScenarios: [PensionProjectionScenario] = []
+    var selectedScenarioBands: Set<PensionGrowthBand> = [.conservative, .moderate, .aggressive]
 
     // MARK: - Computed Properties
 
@@ -65,38 +143,77 @@ class PensionViewModel {
         pensionData?.returnPercentage ?? 0
     }
 
-    var projectedValueAtRetirement: Decimal? {
-        guard let pension = pensionData,
-              let targetAge = pension.targetRetirementAge else {
-            return nil
+    // MARK: - Projection Engine
+
+    static func generateProjection(
+        currentValue: Double,
+        monthlyContribution: Double,
+        annualGrowthRate: Double,
+        currentAge: Int,
+        retirementAge: Int
+    ) -> [PensionYearProjection] {
+        guard retirementAge > currentAge else { return [] }
+
+        let monthlyRate = annualGrowthRate / 100.0 / 12.0
+        var projections: [PensionYearProjection] = []
+        var runningValue = currentValue
+        let currentYear = Calendar.current.component(.year, from: Date())
+
+        for yearOffset in 0..<(retirementAge - currentAge) {
+            let yearStart = runningValue
+            var yearContributions = 0.0
+            var yearGrowth = 0.0
+
+            for _ in 0..<12 {
+                let monthGrowth = runningValue * monthlyRate
+                yearGrowth += monthGrowth
+                runningValue += monthGrowth
+                runningValue += monthlyContribution
+                yearContributions += monthlyContribution
+            }
+
+            let projection = PensionYearProjection(
+                year: currentYear + yearOffset,
+                age: currentAge + yearOffset,
+                startValue: yearStart,
+                contributions: yearContributions,
+                growth: yearGrowth
+            )
+            projections.append(projection)
         }
 
-        let calendar = Calendar.current
-        let now = Date()
-        let birthYear = calendar.component(.year, from: now) - 30
-        let retirementYear = birthYear + targetAge
-        let currentYear = calendar.component(.year, from: now)
-        let currentMonth = calendar.component(.month, from: now)
-        let monthsUntilRetirement = max(0, (retirementYear - currentYear) * 12 - currentMonth + 1)
+        return projections
+    }
 
-        guard monthsUntilRetirement > 0 else {
-            return pension.currentValue
-        }
+    func calculateProjections() {
+        let currentVal = Double(truncating: currentValue as NSNumber)
 
-        let monthlyContributionRate: Decimal
+        // Derive average monthly contribution from history
+        var avgMonthlyContribution: Double = 0
         if !contributionHistory.isEmpty {
             let totalMonthly = contributionHistory.reduce(0.0) { $0 + $1.total }
-            let averageMonthly = totalMonthly / Double(contributionHistory.count)
-            monthlyContributionRate = Decimal(averageMonthly)
-        } else if pension.totalContributions > 0 {
-            let monthsSinceCreation = max(1, calendar.dateComponents([.month], from: pension.createdAt, to: now).month ?? 1)
-            monthlyContributionRate = pension.totalContributions / Decimal(monthsSinceCreation)
-        } else {
-            monthlyContributionRate = 0
+            avgMonthlyContribution = totalMonthly / Double(contributionHistory.count)
         }
+        let totalMonthly = avgMonthlyContribution + projectionAdditionalContribution
 
-        let projected = pension.currentValue + (monthlyContributionRate * Decimal(monthsUntilRetirement))
-        return projected
+        var scenarios: [PensionProjectionScenario] = []
+        for band in selectedScenarioBands.sorted(by: { $0.annualRate < $1.annualRate }) {
+            let rate = band == .custom ? projectionCustomGrowthRate : band.annualRate
+            let yearProjections = PensionViewModel.generateProjection(
+                currentValue: currentVal,
+                monthlyContribution: totalMonthly,
+                annualGrowthRate: rate,
+                currentAge: projectionCurrentAge,
+                retirementAge: projectionRetirementAge
+            )
+            scenarios.append(PensionProjectionScenario(
+                band: band,
+                annualGrowthRate: rate,
+                monthlyContribution: totalMonthly,
+                yearProjections: yearProjections
+            ))
+        }
+        projectionScenarios = scenarios
     }
 
     // MARK: - Data Methods
@@ -112,6 +229,7 @@ class PensionViewModel {
         }
 
         loadContributionHistory(modelContext: modelContext)
+        calculateProjections()
     }
 
     func loadContributionHistory(modelContext: ModelContext) {

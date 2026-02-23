@@ -149,10 +149,17 @@ class PayslipViewModel {
         payslip.notes = notes
         modelContext.insert(payslip)
 
-        // Update pension data if it exists
+        // Update pension data if it exists, or auto-create if payslip has pension contributions
         let pensionDescriptor = FetchDescriptor<PensionData>()
         if let pensionData = try? modelContext.fetch(pensionDescriptor).first {
             pensionData.updateFromPayslip(payslip)
+        } else if pensionContribution > 0 || employerPensionContribution > 0 {
+            let newPension = PensionData(
+                currentValue: 0,
+                totalEmployeeContributions: pensionContribution,
+                totalEmployerContributions: employerPensionContribution
+            )
+            modelContext.insert(newPension)
         }
 
         try? modelContext.save()

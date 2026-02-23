@@ -97,8 +97,8 @@ final class PensionViewModelTests: XCTestCase {
         XCTAssertEqual(sut.returnPercentage, 0)
     }
 
-    func test_projectedValueAtRetirement_withNoData_returnsNil() {
-        XCTAssertNil(sut.projectedValueAtRetirement)
+    func test_projectionScenarios_withNoData_isEmpty() {
+        XCTAssertTrue(sut.projectionScenarios.isEmpty)
     }
 
     // MARK: - Create Pension Data
@@ -502,97 +502,122 @@ final class PensionViewModelTests: XCTestCase {
         }
     }
 
-    // MARK: - Projected Value at Retirement
+    // MARK: - Projection Engine
 
-    @MainActor
-    func test_projectedValueAtRetirement_withTargetAge_returnsValue() {
-        let pension = PensionData(
-            currentValue: 100000,
-            targetRetirementAge: 65
+    func test_projection_zeroGrowth_linearAccumulationOnly() {
+        let projections = PensionViewModel.generateProjection(
+            currentValue: 10000,
+            monthlyContribution: 500,
+            annualGrowthRate: 0,
+            currentAge: 30,
+            retirementAge: 35
         )
-        modelContext.insert(pension)
-        try? modelContext.save()
 
-        sut.loadPensionData(modelContext: modelContext)
-
-        XCTAssertNotNil(sut.projectedValueAtRetirement)
-    }
-
-    @MainActor
-    func test_projectedValueAtRetirement_withoutTargetAge_returnsNil() {
-        let pension = PensionData(
-            currentValue: 100000
-        )
-        modelContext.insert(pension)
-        try? modelContext.save()
-
-        sut.loadPensionData(modelContext: modelContext)
-
-        XCTAssertNil(sut.projectedValueAtRetirement)
-    }
-
-    @MainActor
-    func test_projectedValueAtRetirement_withContributionHistory_includesMonthlyContributions() {
-        // Given
-        let pension = PensionData(
-            currentValue: 100000,
-            targetRetirementAge: 65
-        )
-        modelContext.insert(pension)
-
-        // Add payslip contribution history
-        let calendar = Calendar.current
-        let today = Date()
-        for monthOffset in 0..<6 {
-            let payDate = calendar.date(byAdding: .month, value: -monthOffset, to: today)!
-            let periodStart = calendar.date(byAdding: .day, value: -30, to: payDate)!
-            let payslip = Payslip(
-                payDate: payDate,
-                payPeriodStart: periodStart,
-                payPeriodEnd: payDate,
-                grossPay: 5000,
-                netPay: 3500,
-                incomeTax: 1000,
-                socialInsurance: 200,
-                pensionContribution: 250,
-                employerPensionContribution: 150
-            )
-            modelContext.insert(payslip)
-        }
-        try? modelContext.save()
-
-        // When
-        sut.loadPensionData(modelContext: modelContext)
-
-        // Then
-        let projected = sut.projectedValueAtRetirement
-        XCTAssertNotNil(projected)
-        // Projected should be >= current value since we have positive contributions
-        if let projectedValue = projected {
-            XCTAssertGreaterThanOrEqual(projectedValue, pension.currentValue)
+        XCTAssertEqual(projections.count, 5)
+        // With 0% growth: 5 years * 12 months * 500 = 30000 contributions + 10000 start
+        let finalValue = projections.last!.endValue
+        XCTAssertEqual(finalValue, 40000, accuracy: 0.01)
+        // All growth should be zero
+        for projection in projections {
+            XCTAssertEqual(projection.growth, 0, accuracy: 0.01)
         }
     }
 
-    @MainActor
-    func test_projectedValueAtRetirement_withZeroContributions_equalsCurrentPlusZero() {
-        // Given - pension with target age but no contributions at all
-        let pension = PensionData(
-            currentValue: 100000,
-            targetRetirementAge: 65
+    func test_projection_growthNoContributions_compoundFormulaMatches() {
+        let projections = PensionViewModel.generateProjection(
+            currentValue: 10000,
+            monthlyContribution: 0,
+            annualGrowthRate: 12,
+            currentAge: 30,
+            retirementAge: 31
         )
-        modelContext.insert(pension)
-        try? modelContext.save()
 
-        sut.loadPensionData(modelContext: modelContext)
+        XCTAssertEqual(projections.count, 1)
+        // Monthly rate = 1%, compounded 12 times: 10000 * (1.01)^12 = ~11268.25
+        let expected = 10000.0 * Foundation.pow(1.01, 12.0)
+        XCTAssertEqual(projections.last!.endValue, expected, accuracy: 0.01)
+        // No contributions
+        XCTAssertEqual(projections.last!.contributions, 0, accuracy: 0.01)
+    }
 
-        // With no contribution history and a fresh createdAt,
-        // monthlyContributionRate from totalContributions path = 0
-        // So projected = currentValue + 0 * months = currentValue
-        let projected = sut.projectedValueAtRetirement
-        XCTAssertNotNil(projected)
-        if let projectedValue = projected {
-            XCTAssertEqual(projectedValue, 100000)
-        }
+    func test_projection_growthPlusContributions_exceedsLinearSum() {
+        let projections = PensionViewModel.generateProjection(
+            currentValue: 10000,
+            monthlyContribution: 500,
+            annualGrowthRate: 5,
+            currentAge: 30,
+            retirementAge: 40
+        )
+
+        let finalValue = projections.last!.endValue
+        // Linear sum would be: 10000 + (500 * 120) = 70000
+        XCTAssertGreaterThan(finalValue, 70000)
+    }
+
+    func test_projection_retirementAgeLessThanCurrentAge_emptyResult() {
+        let projections = PensionViewModel.generateProjection(
+            currentValue: 10000,
+            monthlyContribution: 500,
+            annualGrowthRate: 5,
+            currentAge: 65,
+            retirementAge: 60
+        )
+
+        XCTAssertTrue(projections.isEmpty)
+    }
+
+    func test_projection_yearCountMatchesYearsToRetirement() {
+        let projections = PensionViewModel.generateProjection(
+            currentValue: 10000,
+            monthlyContribution: 100,
+            annualGrowthRate: 5,
+            currentAge: 30,
+            retirementAge: 67
+        )
+
+        XCTAssertEqual(projections.count, 37)
+    }
+
+    func test_calculateProjections_correctNumberOfScenarios() {
+        sut.selectedScenarioBands = [.conservative, .moderate, .aggressive]
+        sut.projectionCurrentAge = 30
+        sut.projectionRetirementAge = 65
+        sut.calculateProjections()
+
+        XCTAssertEqual(sut.projectionScenarios.count, 3)
+        // Verify they are in rate order
+        XCTAssertEqual(sut.projectionScenarios[0].annualGrowthRate, 3.0, accuracy: 0.01)
+        XCTAssertEqual(sut.projectionScenarios[1].annualGrowthRate, 5.0, accuracy: 0.01)
+        XCTAssertEqual(sut.projectionScenarios[2].annualGrowthRate, 7.0, accuracy: 0.01)
+    }
+
+    func test_calculateProjections_customRateUsedCorrectly() {
+        sut.selectedScenarioBands = [.custom]
+        sut.projectionCustomGrowthRate = 8.5
+        sut.projectionCurrentAge = 30
+        sut.projectionRetirementAge = 65
+        sut.calculateProjections()
+
+        XCTAssertEqual(sut.projectionScenarios.count, 1)
+        XCTAssertEqual(sut.projectionScenarios.first!.annualGrowthRate, 8.5, accuracy: 0.01)
+    }
+
+    func test_calculateProjections_additionalContributionIncreasesProjection() {
+        sut.selectedScenarioBands = [.moderate]
+        sut.projectionCurrentAge = 30
+        sut.projectionRetirementAge = 65
+
+        // Without additional contribution
+        sut.projectionAdditionalContribution = 0
+        sut.calculateProjections()
+        let baseValue = sut.projectionScenarios.first?.finalValue ?? 0
+
+        // With additional contribution
+        sut.projectionAdditionalContribution = 200
+        sut.calculateProjections()
+        let boostedValue = sut.projectionScenarios.first?.finalValue ?? 0
+
+        XCTAssertGreaterThan(boostedValue, baseValue)
     }
 
     // MARK: - PensionContributionData

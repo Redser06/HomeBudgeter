@@ -128,7 +128,7 @@ struct PensionEmptyState: View {
 // MARK: - Dashboard Content
 
 struct PensionDashboardContent: View {
-    var viewModel: PensionViewModel
+    @Bindable var viewModel: PensionViewModel
 
     var body: some View {
         ScrollView {
@@ -533,83 +533,242 @@ struct PensionContributionChart: View {
 // MARK: - Projection Section
 
 struct PensionProjectionSection: View {
-    var viewModel: PensionViewModel
+    @Bindable var viewModel: PensionViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Retirement Projection")
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Retirement Projection Calculator")
                 .font(.headline)
 
-            if let projected = viewModel.projectedValueAtRetirement,
-               let targetAge = viewModel.pensionData?.targetRetirementAge {
-                HStack(spacing: 24) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Projected Value at Age \(targetAge)")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        Text(CurrencyFormatter.shared.format(Double(truncating: projected as NSNumber)))
-                            .font(.system(.title2, design: .monospaced))
-                            .fontWeight(.bold)
-                            .foregroundColor(.primaryBlue)
-                    }
+            PensionProjectionInputs(viewModel: viewModel)
 
-                    Divider()
-                        .frame(height: 40)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Current Value")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        Text(CurrencyFormatter.shared.format(Double(truncating: viewModel.currentValue as NSNumber)))
-                            .font(.system(.title3, design: .monospaced))
-                            .fontWeight(.medium)
-                    }
-
-                    Divider()
-                        .frame(height: 40)
-
-                    if !viewModel.contributionHistory.isEmpty {
-                        let avgMonthly = viewModel.contributionHistory.reduce(0.0) { $0 + $1.total } / Double(viewModel.contributionHistory.count)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Avg. Monthly Contribution")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            Text(CurrencyFormatter.shared.format(avgMonthly))
-                                .font(.system(.title3, design: .monospaced))
-                                .fontWeight(.medium)
-                        }
-                    }
-
-                    Spacer()
-                }
-
-                Text("Projection based on current value plus average monthly contributions. Does not account for investment growth.")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .padding(.top, 4)
-            } else {
-                HStack {
-                    Image(systemName: "chart.line.uptrend.xyaxis")
-                        .font(.title2)
-                        .foregroundColor(.secondary)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("No projection available")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        Text("Set a target retirement age in your pension details to see a retirement projection.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    Spacer()
-                }
-                .padding()
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(8)
+            if !viewModel.projectionScenarios.isEmpty {
+                PensionProjectionChart(viewModel: viewModel)
+                PensionProjectionSummary(viewModel: viewModel)
             }
         }
         .padding()
         .background(Color(.controlBackgroundColor))
         .cornerRadius(12)
+    }
+}
+
+// MARK: - Projection Inputs
+
+struct PensionProjectionInputs: View {
+    @Bindable var viewModel: PensionViewModel
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 24) {
+                HStack {
+                    Text("Current Age")
+                        .font(.subheadline)
+                    Stepper("\(viewModel.projectionCurrentAge)", value: $viewModel.projectionCurrentAge, in: 18...80)
+                        .frame(width: 140)
+                }
+
+                HStack {
+                    Text("Retirement Age")
+                        .font(.subheadline)
+                    Stepper("\(viewModel.projectionRetirementAge)", value: $viewModel.projectionRetirementAge, in: 50...80)
+                        .frame(width: 140)
+                }
+
+                HStack {
+                    Text("Extra Monthly")
+                        .font(.subheadline)
+                    TextField("Amount", value: $viewModel.projectionAdditionalContribution, format: .currency(code: CurrencyFormatter.shared.currencyCode))
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 100)
+                }
+            }
+
+            HStack(spacing: 16) {
+                Text("Scenarios:")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                ForEach(PensionGrowthBand.allCases) { band in
+                    Toggle(isOn: Binding(
+                        get: { viewModel.selectedScenarioBands.contains(band) },
+                        set: { isOn in
+                            if isOn {
+                                viewModel.selectedScenarioBands.insert(band)
+                            } else {
+                                viewModel.selectedScenarioBands.remove(band)
+                            }
+                        }
+                    )) {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(band.color)
+                                .frame(width: 8, height: 8)
+                            Text(band.displayDescription)
+                                .font(.caption)
+                        }
+                    }
+                    .toggleStyle(.checkbox)
+                }
+
+                if viewModel.selectedScenarioBands.contains(.custom) {
+                    HStack(spacing: 4) {
+                        TextField("Rate", value: $viewModel.projectionCustomGrowthRate, format: .number.precision(.fractionLength(1)))
+                            .frame(width: 50)
+                            .multilineTextAlignment(.trailing)
+                        Text("%")
+                            .font(.caption)
+                    }
+                }
+
+                Spacer()
+
+                Button("Calculate") {
+                    viewModel.calculateProjections()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
+        }
+    }
+}
+
+// MARK: - Projection Chart
+
+struct PensionProjectionChart: View {
+    var viewModel: PensionViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Chart {
+                ForEach(viewModel.projectionScenarios) { scenario in
+                    ForEach(scenario.yearProjections) { projection in
+                        LineMark(
+                            x: .value("Age", projection.age),
+                            y: .value("Value", projection.endValue)
+                        )
+                        .foregroundStyle(by: .value("Scenario", scenario.band.displayDescription))
+                    }
+                }
+
+                if let goal = viewModel.pensionData?.retirementGoal {
+                    RuleMark(y: .value("Goal", Double(truncating: goal as NSNumber)))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
+                        .foregroundStyle(.gray)
+                        .annotation(position: .top, alignment: .trailing) {
+                            Text("Goal")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                }
+            }
+            .chartForegroundStyleScale(
+                domain: viewModel.projectionScenarios.map { $0.band.displayDescription },
+                range: viewModel.projectionScenarios.map { $0.band.color }
+            )
+            .chartLegend(position: .bottom)
+            .chartYAxis {
+                AxisMarks(position: .leading) { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let doubleValue = value.as(Double.self) {
+                            Text(CurrencyFormatter.shared.formatCompact(doubleValue))
+                                .font(.caption2)
+                        }
+                    }
+                }
+            }
+            .chartXAxis {
+                AxisMarks { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let age = value.as(Int.self) {
+                            Text("\(age)")
+                                .font(.caption2)
+                        }
+                    }
+                }
+            }
+            .frame(height: 250)
+        }
+    }
+}
+
+// MARK: - Projection Summary
+
+struct PensionProjectionSummary: View {
+    var viewModel: PensionViewModel
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ForEach(viewModel.projectionScenarios) { scenario in
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(scenario.band.color)
+                            .frame(width: 10, height: 10)
+                        Text(scenario.band.displayDescription)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Final Value")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Text(CurrencyFormatter.shared.format(scenario.finalValue))
+                            .font(.system(.subheadline, design: .monospaced))
+                            .fontWeight(.bold)
+                            .foregroundColor(scenario.band.color)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack {
+                            Text("Contributions")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text(CurrencyFormatter.shared.format(scenario.totalContributions))
+                                .font(.caption2)
+                                .fontWeight(.medium)
+                        }
+                        HStack {
+                            Text("Growth")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text(CurrencyFormatter.shared.format(scenario.totalGrowth))
+                                .font(.caption2)
+                                .fontWeight(.medium)
+                        }
+                    }
+
+                    if let goal = viewModel.pensionData?.retirementGoal {
+                        let goalDouble = Double(truncating: goal as NSNumber)
+                        let diff = scenario.finalValue - goalDouble
+                        Divider()
+                        HStack {
+                            Text(diff >= 0 ? "Surplus" : "Shortfall")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text(CurrencyFormatter.shared.format(abs(diff)))
+                                .font(.caption2)
+                                .fontWeight(.medium)
+                                .foregroundColor(diff >= 0 ? .budgetHealthy : .budgetDanger)
+                        }
+                    }
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(.controlBackgroundColor))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(scenario.band.color.opacity(0.3), lineWidth: 1)
+                )
+                .cornerRadius(8)
+            }
+        }
     }
 }
 

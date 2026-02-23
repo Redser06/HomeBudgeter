@@ -514,6 +514,69 @@ final class PayslipViewModelTests: XCTestCase {
         XCTAssertEqual(sut.filteredPayslips.first?.employer, "Acme Corp")
     }
 
+    // MARK: - Pension Data Auto-Creation
+
+    @MainActor
+    func test_createPayslip_autoCreatesPensionData_whenNoneExistsAndHasContributions() {
+        // Given - no PensionData exists
+        let currentYear = Calendar.current.component(.year, from: Date())
+
+        // When - create payslip with pension contributions
+        sut.createPayslip(
+            payDate: makeDate(year: currentYear, month: 1, day: 25),
+            payPeriodStart: makeDate(year: currentYear, month: 1, day: 1),
+            payPeriodEnd: makeDate(year: currentYear, month: 1, day: 31),
+            grossPay: 5000,
+            netPay: 3500,
+            incomeTax: 1000,
+            socialInsurance: 200,
+            universalCharge: nil,
+            pensionContribution: 250,
+            employerPensionContribution: 125,
+            otherDeductions: 0,
+            employer: nil,
+            notes: nil,
+            modelContext: modelContext
+        )
+
+        // Then - PensionData should be auto-created
+        let descriptor = FetchDescriptor<PensionData>()
+        let fetched = try? modelContext.fetch(descriptor)
+        XCTAssertEqual(fetched?.count, 1)
+        XCTAssertEqual(fetched?.first?.currentValue, 0)
+        XCTAssertEqual(fetched?.first?.totalEmployeeContributions, 250)
+        XCTAssertEqual(fetched?.first?.totalEmployerContributions, 125)
+    }
+
+    @MainActor
+    func test_createPayslip_doesNotCreatePensionData_whenContributionsAreZero() {
+        // Given - no PensionData exists
+        let currentYear = Calendar.current.component(.year, from: Date())
+
+        // When - create payslip with zero pension contributions
+        sut.createPayslip(
+            payDate: makeDate(year: currentYear, month: 1, day: 25),
+            payPeriodStart: makeDate(year: currentYear, month: 1, day: 1),
+            payPeriodEnd: makeDate(year: currentYear, month: 1, day: 31),
+            grossPay: 5000,
+            netPay: 3500,
+            incomeTax: 1000,
+            socialInsurance: 200,
+            universalCharge: nil,
+            pensionContribution: 0,
+            employerPensionContribution: 0,
+            otherDeductions: 0,
+            employer: nil,
+            notes: nil,
+            modelContext: modelContext
+        )
+
+        // Then - no PensionData should be created
+        let descriptor = FetchDescriptor<PensionData>()
+        let fetched = try? modelContext.fetch(descriptor)
+        XCTAssertEqual(fetched?.count, 0)
+    }
+
     // MARK: - Pension Data Integration
 
     @MainActor
