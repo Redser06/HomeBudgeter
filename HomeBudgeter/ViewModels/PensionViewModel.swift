@@ -275,6 +275,7 @@ class PensionViewModel {
         }
     }
 
+    @MainActor
     func createPensionData(
         currentValue: Decimal,
         provider: String?,
@@ -292,9 +293,16 @@ class PensionViewModel {
         pension.notes = notes
         modelContext.insert(pension)
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            let dto = SyncMapper.toDTO(pension, userId: userId)
+            Task { await SyncService.shared.pushUpsert(table: "pension_data", recordId: pension.id, dto: dto, modelContext: modelContext) }
+        }
+
         loadPensionData(modelContext: modelContext)
     }
 
+    @MainActor
     func updatePensionData(
         currentValue: Decimal,
         investmentReturns: Decimal,
@@ -313,6 +321,12 @@ class PensionViewModel {
         pension.notes = notes
         pension.lastUpdated = Date()
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            let dto = SyncMapper.toDTO(pension, userId: userId)
+            Task { await SyncService.shared.pushUpsert(table: "pension_data", recordId: pension.id, dto: dto, modelContext: modelContext) }
+        }
+
         loadPensionData(modelContext: modelContext)
     }
 

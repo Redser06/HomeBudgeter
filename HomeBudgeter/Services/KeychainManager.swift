@@ -38,10 +38,12 @@ final class KeychainManager {
     private init() {}
 
     enum KeychainKey: String {
-        case apiKey         = "com.homebudgeter.apiKey"
-        case encryptionSalt = "com.homebudgeter.encryptionSalt"
-        case claudeApiKey   = "com.homebudgeter.claudeApiKey"
-        case geminiApiKey   = "com.homebudgeter.geminiApiKey"
+        case apiKey              = "com.homebudgeter.apiKey"
+        case encryptionSalt      = "com.homebudgeter.encryptionSalt"
+        case claudeApiKey        = "com.homebudgeter.claudeApiKey"
+        case geminiApiKey        = "com.homebudgeter.geminiApiKey"
+        case supabaseAccessToken = "com.homebudgeter.supabaseAccessToken"
+        case supabaseRefreshToken = "com.homebudgeter.supabaseRefreshToken"
     }
 
     // MARK: - Store

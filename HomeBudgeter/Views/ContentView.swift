@@ -61,13 +61,19 @@ struct SidebarView: View {
     @Binding var selectedItem: NavigationItem?
 
     var body: some View {
-        List(NavigationItem.allCases, selection: $selectedItem) { item in
-            NavigationLink(value: item) {
-                Label(item.rawValue, systemImage: item.icon)
+        VStack(spacing: 0) {
+            List(NavigationItem.allCases, selection: $selectedItem) { item in
+                NavigationLink(value: item) {
+                    Label(item.rawValue, systemImage: item.icon)
+                }
             }
+            .listStyle(.sidebar)
+            .navigationTitle("Home Budgeter")
+
+            Divider()
+            SyncStatusView()
+                .padding(.vertical, 6)
         }
-        .listStyle(.sidebar)
-        .navigationTitle("Home Budgeter")
         .frame(minWidth: 200)
     }
 }

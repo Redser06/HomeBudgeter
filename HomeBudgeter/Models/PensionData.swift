@@ -15,6 +15,7 @@ final class PensionData {
     var notes: String?
     var member: HouseholdMember?
     var createdAt: Date
+    var updatedAt: Date = Date()
 
     @Relationship(deleteRule: .nullify, inverse: \Document.linkedPension)
     var sourceDocuments: [Document]?
@@ -38,6 +39,7 @@ final class PensionData {
         self.provider = provider
         self.lastUpdated = Date()
         self.createdAt = Date()
+        self.updatedAt = Date()
     }
 
     var totalContributions: Decimal {

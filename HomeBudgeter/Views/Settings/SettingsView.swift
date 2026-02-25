@@ -189,7 +189,55 @@ struct SettingsView: View {
                     Label("Household Members", systemImage: "person.2")
                 }
 
-                // iCloud Sync Section
+                // Account & Sync Section
+                Section {
+                    if AuthManager.shared.isSignedIn {
+                        LabeledContent("Signed in as") {
+                            Text(AuthManager.shared.userEmail ?? "Unknown")
+                                .foregroundColor(.secondary)
+                        }
+
+                        HStack(spacing: 8) {
+                            Image(systemName: SyncService.shared.statusIcon)
+                                .foregroundColor(supabaseSyncStatusColor)
+                            Text(SyncService.shared.statusDescription)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Button {
+                            Task {
+                                await SyncService.shared.fullSync(
+                                    modelContext: PersistenceController.shared.modelContainer.mainContext
+                                )
+                            }
+                        } label: {
+                            Label("Sync Now", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                        .disabled(SyncService.shared.status == .syncing)
+
+                        Button {
+                            Task { await AuthManager.shared.linkGoogleAccount() }
+                        } label: {
+                            Label("Link Google Account", systemImage: "globe")
+                        }
+
+                        Button(role: .destructive) {
+                            Task { await AuthManager.shared.signOut() }
+                        } label: {
+                            Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
+                        }
+                    } else {
+                        Text("Not signed in")
+                            .foregroundColor(.secondary)
+                        Text("Sign in to sync your data across devices and the web.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                } header: {
+                    Label("Account & Sync", systemImage: "person.icloud")
+                }
+
+                // iCloud Sync Section (Legacy)
                 Section {
                     Toggle("Enable iCloud Sync", isOn: Binding(
                         get: { viewModel.iCloudSyncEnabled },
@@ -206,11 +254,11 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                     }
 
-                    Text("Syncs your financial data across Macs using your private iCloud account. Encrypted documents remain stored locally only. Changing this setting requires an app restart.")
+                    Text("Legacy iCloud sync. Use Supabase sync above for cross-platform support.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 } header: {
-                    Label("iCloud Sync", systemImage: "icloud")
+                    Label("iCloud Sync (Legacy)", systemImage: "icloud")
                 }
 
                 // AI & Parsing Section
@@ -574,6 +622,16 @@ struct SettingsView: View {
             Button("OK") {}
         } message: {
             Text("Please quit and reopen Home Budgeter for the iCloud Sync change to take effect.")
+        }
+    }
+
+    private var supabaseSyncStatusColor: Color {
+        switch SyncService.shared.status {
+        case .idle: return .secondary
+        case .syncing: return .blue
+        case .succeeded: return .budgetHealthy
+        case .failed: return .budgetDanger
+        case .offline: return .budgetWarning
         }
     }
 

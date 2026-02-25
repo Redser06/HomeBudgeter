@@ -19,6 +19,7 @@ final class Payslip {
     var employer: String?
     var notes: String?
     var createdAt: Date
+    var updatedAt: Date = Date()
 
     var member: HouseholdMember?
 
@@ -55,6 +56,7 @@ final class Payslip {
         self.healthInsurancePremium = healthInsurancePremium
         self.employer = employer
         self.createdAt = Date()
+        self.updatedAt = Date()
     }
 
     var totalDeductions: Decimal {

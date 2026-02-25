@@ -339,12 +339,14 @@ struct AddTransactionSheet: View {
                 Spacer()
 
                 Button("Add Transaction") {
+                    let category = findOrCreateCategory(selectedCategory)
                     let transaction = Transaction(
                         amount: Decimal(amount),
                         date: date,
                         descriptionText: title,
                         type: isExpense ? .expense : .income,
-                        notes: note.isEmpty ? nil : note
+                        notes: note.isEmpty ? nil : note,
+                        category: category
                     )
                     viewModel.addTransaction(transaction, modelContext: modelContext)
                     dismiss()
@@ -355,6 +357,17 @@ struct AddTransactionSheet: View {
         }
         .padding()
         .frame(width: 400, height: 450)
+    }
+
+    private func findOrCreateCategory(_ type: CategoryType) -> BudgetCategory {
+        let descriptor = FetchDescriptor<BudgetCategory>()
+        let categories = (try? modelContext.fetch(descriptor)) ?? []
+        if let existing = categories.first(where: { $0.type == type }) {
+            return existing
+        }
+        let newCategory = BudgetCategory(type: type)
+        modelContext.insert(newCategory)
+        return newCategory
     }
 }
 
@@ -427,10 +440,17 @@ struct EditTransactionSheet: View {
                     transaction.descriptionText = title
                     transaction.amount = Decimal(amount)
                     transaction.type = isExpense ? .expense : .income
+                    transaction.category = findOrCreateCategory(selectedCategory)
                     transaction.date = date
                     transaction.notes = note.isEmpty ? nil : note
                     transaction.updatedAt = Date()
                     try? modelContext.save()
+
+                    if let userId = AuthManager.shared.currentUserId {
+                        let dto = SyncMapper.toDTO(transaction, userId: userId)
+                        Task { await SyncService.shared.pushUpsert(table: "transactions", recordId: transaction.id, dto: dto, modelContext: modelContext) }
+                    }
+
                     viewModel.loadTransactions(modelContext: modelContext)
                     dismiss()
                 }
@@ -439,6 +459,17 @@ struct EditTransactionSheet: View {
         }
         .padding()
         .frame(width: 400, height: 480)
+    }
+
+    private func findOrCreateCategory(_ type: CategoryType) -> BudgetCategory {
+        let descriptor = FetchDescriptor<BudgetCategory>()
+        let categories = (try? modelContext.fetch(descriptor)) ?? []
+        if let existing = categories.first(where: { $0.type == type }) {
+            return existing
+        }
+        let newCategory = BudgetCategory(type: type)
+        modelContext.insert(newCategory)
+        return newCategory
     }
 }
 

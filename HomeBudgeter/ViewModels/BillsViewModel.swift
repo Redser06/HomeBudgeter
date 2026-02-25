@@ -359,6 +359,20 @@ class BillsViewModel {
         }
 
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            let txDTO = SyncMapper.toDTO(transaction, userId: userId)
+            Task { await SyncService.shared.pushUpsert(table: "transactions", recordId: transaction.id, dto: txDTO, modelContext: modelContext) }
+            // Sync each BillLineItem
+            let descriptor = FetchDescriptor<BillLineItem>()
+            if let allLineItems = try? modelContext.fetch(descriptor) {
+                for item in allLineItems where item.transaction?.id == transaction.id {
+                    let itemDTO = SyncMapper.toDTO(item, userId: userId)
+                    Task { await SyncService.shared.pushUpsert(table: "bill_line_items", recordId: item.id, dto: itemDTO, modelContext: modelContext) }
+                }
+            }
+        }
+
         loadBills(modelContext: modelContext)
 
         // Auto-detect recurring pattern for this vendor
@@ -370,6 +384,8 @@ class BillsViewModel {
 
     @MainActor
     func deleteBill(_ bill: Transaction, modelContext: ModelContext) {
+        let recordId = bill.id
+        let docId = bill.linkedDocument?.id
         // Also remove linked document if present
         if let doc = bill.linkedDocument {
             // Try to remove the file from disk
@@ -378,6 +394,14 @@ class BillsViewModel {
         }
         modelContext.delete(bill)
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            Task { await SyncService.shared.pushDelete(table: "transactions", recordId: recordId, modelContext: modelContext) }
+            if let docId {
+                Task { await SyncService.shared.pushDelete(table: "documents", recordId: docId, modelContext: modelContext) }
+            }
+        }
+
         loadBills(modelContext: modelContext)
     }
 

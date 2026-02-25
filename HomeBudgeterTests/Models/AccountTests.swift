@@ -22,7 +22,8 @@ final class AccountTests: XCTestCase {
             BillLineItem.self,
             HouseholdMember.self,
             Investment.self,
-            InvestmentTransaction.self
+            InvestmentTransaction.self,
+            SyncQueueEntry.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         do {

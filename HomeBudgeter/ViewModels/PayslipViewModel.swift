@@ -114,6 +114,7 @@ class PayslipViewModel {
         }
     }
 
+    @MainActor
     func createPayslip(
         payDate: Date,
         payPeriodStart: Date,
@@ -151,29 +152,57 @@ class PayslipViewModel {
 
         // Update pension data if it exists, or auto-create if payslip has pension contributions
         let pensionDescriptor = FetchDescriptor<PensionData>()
-        if let pensionData = try? modelContext.fetch(pensionDescriptor).first {
+        let existingPension = try? modelContext.fetch(pensionDescriptor).first
+        var newPension: PensionData?
+        if let pensionData = existingPension {
             pensionData.updateFromPayslip(payslip)
         } else if pensionContribution > 0 || employerPensionContribution > 0 {
-            let newPension = PensionData(
+            let pension = PensionData(
                 currentValue: 0,
                 totalEmployeeContributions: pensionContribution,
                 totalEmployerContributions: employerPensionContribution
             )
-            modelContext.insert(newPension)
+            modelContext.insert(pension)
+            newPension = pension
         }
 
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            let dto = SyncMapper.toDTO(payslip, userId: userId)
+            Task { await SyncService.shared.pushUpsert(table: "payslips", recordId: payslip.id, dto: dto, modelContext: modelContext) }
+            // Sync pension data if updated or created
+            if let pension = existingPension ?? newPension {
+                let pensionDTO = SyncMapper.toDTO(pension, userId: userId)
+                Task { await SyncService.shared.pushUpsert(table: "pension_data", recordId: pension.id, dto: pensionDTO, modelContext: modelContext) }
+            }
+        }
+
         loadPayslips(modelContext: modelContext)
     }
 
+    @MainActor
     func deletePayslip(_ payslip: Payslip, modelContext: ModelContext) {
+        let recordId = payslip.id
         modelContext.delete(payslip)
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            Task { await SyncService.shared.pushDelete(table: "payslips", recordId: recordId, modelContext: modelContext) }
+        }
+
         loadPayslips(modelContext: modelContext)
     }
 
+    @MainActor
     func updatePayslip(_ payslip: Payslip, modelContext: ModelContext) {
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            let dto = SyncMapper.toDTO(payslip, userId: userId)
+            Task { await SyncService.shared.pushUpsert(table: "payslips", recordId: payslip.id, dto: dto, modelContext: modelContext) }
+        }
+
         loadPayslips(modelContext: modelContext)
     }
 

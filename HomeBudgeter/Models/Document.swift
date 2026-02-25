@@ -36,6 +36,7 @@ final class Document {
     var extractedData: String?
     var notes: String?
     var createdAt: Date
+    var updatedAt: Date = Date()
 
     @Relationship(deleteRule: .nullify, inverse: \Transaction.linkedDocument)
     var linkedTransaction: Transaction?
@@ -59,6 +60,7 @@ final class Document {
         self.mimeType = mimeType
         self.isProcessed = false
         self.createdAt = Date()
+        self.updatedAt = Date()
     }
 
     var formattedFileSize: String {

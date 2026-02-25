@@ -77,6 +77,7 @@ class DocumentsViewModel {
         filteredDocuments = result
     }
 
+    @MainActor
     func importDocument(from url: URL, modelContext: ModelContext) async throws {
         isProcessing = true
         processingProgress = 0
@@ -132,11 +133,14 @@ class DocumentsViewModel {
         modelContext.insert(document)
         try modelContext.save()
 
+        if let userId = AuthManager.shared.currentUserId {
+            let dto = SyncMapper.toDTO(document, userId: userId)
+            Task { await SyncService.shared.pushUpsert(table: "documents", recordId: document.id, dto: dto, modelContext: modelContext) }
+        }
+
         processingProgress = 1.0
 
-        await MainActor.run {
-            documents.insert(document, at: 0)
-        }
+        documents.insert(document, at: 0)
     }
 
     /// Returns the document's file data, decrypting if the file is encrypted.
@@ -150,7 +154,9 @@ class DocumentsViewModel {
         return data
     }
 
+    @MainActor
     func deleteDocument(_ document: Document, modelContext: ModelContext) {
+        let recordId = document.id
         // Delete file from disk
         let fileURL = URL(fileURLWithPath: document.localPath)
         try? FileManager.default.removeItem(at: fileURL)
@@ -158,6 +164,10 @@ class DocumentsViewModel {
         // Delete from database
         modelContext.delete(document)
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            Task { await SyncService.shared.pushDelete(table: "documents", recordId: recordId, modelContext: modelContext) }
+        }
 
         documents.removeAll { $0.id == document.id }
     }

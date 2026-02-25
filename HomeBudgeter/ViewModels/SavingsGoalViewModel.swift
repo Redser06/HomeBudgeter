@@ -69,6 +69,7 @@ class SavingsGoalViewModel {
         }
     }
 
+    @MainActor
     func createGoal(
         name: String,
         targetAmount: Decimal,
@@ -88,21 +89,42 @@ class SavingsGoalViewModel {
         )
         modelContext.insert(goal)
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            let dto = SyncMapper.toDTO(goal, userId: userId)
+            Task { await SyncService.shared.pushUpsert(table: "savings_goals", recordId: goal.id, dto: dto, modelContext: modelContext) }
+        }
+
         loadGoals(modelContext: modelContext)
     }
 
+    @MainActor
     func updateGoal(goal: SavingsGoal, modelContext: ModelContext) {
         goal.updatedAt = Date()
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            let dto = SyncMapper.toDTO(goal, userId: userId)
+            Task { await SyncService.shared.pushUpsert(table: "savings_goals", recordId: goal.id, dto: dto, modelContext: modelContext) }
+        }
+
         loadGoals(modelContext: modelContext)
     }
 
+    @MainActor
     func deleteGoal(goal: SavingsGoal, modelContext: ModelContext) {
+        let recordId = goal.id
         modelContext.delete(goal)
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            Task { await SyncService.shared.pushDelete(table: "savings_goals", recordId: recordId, modelContext: modelContext) }
+        }
+
         loadGoals(modelContext: modelContext)
     }
 
+    @MainActor
     func addContribution(goal: SavingsGoal, amount: Decimal, modelContext: ModelContext) {
         goal.currentAmount += amount
         goal.updatedAt = Date()
@@ -110,6 +132,12 @@ class SavingsGoalViewModel {
             goal.isCompleted = true
         }
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            let dto = SyncMapper.toDTO(goal, userId: userId)
+            Task { await SyncService.shared.pushUpsert(table: "savings_goals", recordId: goal.id, dto: dto, modelContext: modelContext) }
+        }
+
         loadGoals(modelContext: modelContext)
     }
 }

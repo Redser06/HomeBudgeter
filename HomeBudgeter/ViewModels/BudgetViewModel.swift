@@ -103,9 +103,15 @@ class BudgetViewModel {
         try? modelContext.save()
     }
 
+    @MainActor
     func updateBudget(for category: BudgetCategory, amount: Decimal, modelContext: ModelContext) {
         category.budgetAmount = amount
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            let dto = SyncMapper.toDTO(category, userId: userId)
+            Task { await SyncService.shared.pushUpsert(table: "budget_categories", recordId: category.id, dto: dto, modelContext: modelContext) }
+        }
     }
 
     func recalculateSpending(modelContext: ModelContext) {
@@ -141,6 +147,7 @@ class BudgetViewModel {
         // This will be called with modelContext from view
     }
 
+    @MainActor
     func addBudget(name: String, amount: Double, icon: String, modelContext: ModelContext) {
         let categoryType = CategoryType.allCases.first { $0.rawValue == name } ?? .other
         let category = BudgetCategory(
@@ -150,6 +157,12 @@ class BudgetViewModel {
         )
         modelContext.insert(category)
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            let dto = SyncMapper.toDTO(category, userId: userId)
+            Task { await SyncService.shared.pushUpsert(table: "budget_categories", recordId: category.id, dto: dto, modelContext: modelContext) }
+        }
+
         loadCategories(modelContext: modelContext)
     }
 
@@ -157,12 +170,19 @@ class BudgetViewModel {
         // This will be called with modelContext from view
     }
 
+    @MainActor
     func updateBudget(_ budget: BudgetCategory, name: String, amount: Double, modelContext: ModelContext) {
         budget.budgetAmount = Decimal(string: String(amount)) ?? 0
         if let categoryType = CategoryType.allCases.first(where: { $0.rawValue == name }) {
             budget.type = categoryType
         }
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            let dto = SyncMapper.toDTO(budget, userId: userId)
+            Task { await SyncService.shared.pushUpsert(table: "budget_categories", recordId: budget.id, dto: dto, modelContext: modelContext) }
+        }
+
         loadCategories(modelContext: modelContext)
     }
 
@@ -170,9 +190,16 @@ class BudgetViewModel {
         // This will be called with modelContext from view
     }
 
+    @MainActor
     func deleteBudget(_ budget: BudgetCategory, modelContext: ModelContext) {
+        let recordId = budget.id
         modelContext.delete(budget)
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            Task { await SyncService.shared.pushDelete(table: "budget_categories", recordId: recordId, modelContext: modelContext) }
+        }
+
         loadCategories(modelContext: modelContext)
     }
 }

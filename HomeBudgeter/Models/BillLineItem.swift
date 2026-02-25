@@ -15,6 +15,7 @@ final class BillLineItem {
     var amount: Decimal
     var label: String?
     var provider: String?
+    var updatedAt: Date = Date()
 
     var transaction: Transaction?
 
@@ -31,5 +32,6 @@ final class BillLineItem {
         self.label = label
         self.provider = provider
         self.transaction = transaction
+        self.updatedAt = Date()
     }
 }

@@ -153,6 +153,12 @@ class TransactionsViewModel {
     func addTransaction(_ transaction: Transaction, modelContext: ModelContext) {
         modelContext.insert(transaction)
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            let dto = SyncMapper.toDTO(transaction, userId: userId)
+            Task { await SyncService.shared.pushUpsert(table: "transactions", recordId: transaction.id, dto: dto, modelContext: modelContext) }
+        }
+
         loadTransactions(modelContext: modelContext)
 
         // Check for recurring pattern after save
@@ -166,9 +172,16 @@ class TransactionsViewModel {
         }
     }
 
+    @MainActor
     func deleteTransaction(_ transaction: Transaction, modelContext: ModelContext) {
+        let recordId = transaction.id
         modelContext.delete(transaction)
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            Task { await SyncService.shared.pushDelete(table: "transactions", recordId: recordId, modelContext: modelContext) }
+        }
+
         loadTransactions(modelContext: modelContext)
     }
 

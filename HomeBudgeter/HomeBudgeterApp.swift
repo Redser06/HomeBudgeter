@@ -14,7 +14,7 @@ struct HomeBudgeterApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
                 .onAppear {
                     BillMigrationService.shared.migrateIfNeeded(
                         modelContext: sharedModelContainer.mainContext
@@ -28,6 +28,18 @@ struct HomeBudgeterApp: App {
                     await NotificationService.shared.scheduleUpcomingReminders(
                         modelContext: sharedModelContainer.mainContext
                     )
+                }
+                .task {
+                    // Full sync on launch after auth resolves
+                    guard AuthManager.shared.isSignedIn else { return }
+                    await SyncService.shared.fullSync(
+                        modelContext: sharedModelContainer.mainContext
+                    )
+                }
+                .onOpenURL { url in
+                    Task {
+                        await AuthManager.shared.handleOAuthCallback(url: url)
+                    }
                 }
         }
         .modelContainer(sharedModelContainer)

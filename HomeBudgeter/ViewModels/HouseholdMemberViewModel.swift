@@ -67,6 +67,12 @@ class HouseholdMemberViewModel {
 
         do {
             try modelContext.save()
+
+            if let userId = AuthManager.shared.currentUserId {
+                let dto = SyncMapper.toDTO(member, userId: userId)
+                Task { await SyncService.shared.pushUpsert(table: "household_members", recordId: member.id, dto: dto, modelContext: modelContext) }
+            }
+
             loadMembers(modelContext: modelContext)
         } catch {
             print("Error saving household member: \(error)")
@@ -94,6 +100,12 @@ class HouseholdMemberViewModel {
 
         do {
             try modelContext.save()
+
+            if let userId = AuthManager.shared.currentUserId {
+                let dto = SyncMapper.toDTO(member, userId: userId)
+                Task { await SyncService.shared.pushUpsert(table: "household_members", recordId: member.id, dto: dto, modelContext: modelContext) }
+            }
+
             loadMembers(modelContext: modelContext)
         } catch {
             print("Error updating household member: \(error)")
@@ -102,10 +114,16 @@ class HouseholdMemberViewModel {
 
     @MainActor
     func deleteMember(_ member: HouseholdMember, modelContext: ModelContext) {
+        let recordId = member.id
         modelContext.delete(member)
 
         do {
             try modelContext.save()
+
+            if let userId = AuthManager.shared.currentUserId {
+                Task { await SyncService.shared.pushDelete(table: "household_members", recordId: recordId, modelContext: modelContext) }
+            }
+
             loadMembers(modelContext: modelContext)
         } catch {
             print("Error deleting household member: \(error)")
@@ -120,6 +138,12 @@ class HouseholdMemberViewModel {
 
         do {
             try modelContext.save()
+
+            if let userId = AuthManager.shared.currentUserId {
+                let dto = SyncMapper.toDTO(member, userId: userId)
+                Task { await SyncService.shared.pushUpsert(table: "household_members", recordId: member.id, dto: dto, modelContext: modelContext) }
+            }
+
             loadMembers(modelContext: modelContext)
         } catch {
             print("Error setting default member: \(error)")

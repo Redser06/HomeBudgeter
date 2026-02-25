@@ -67,6 +67,7 @@ class RecurringViewModel {
         }
     }
 
+    @MainActor
     func createTemplate(
         name: String,
         amount: Decimal,
@@ -92,26 +93,53 @@ class RecurringViewModel {
         )
         modelContext.insert(template)
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            let dto = SyncMapper.toDTO(template, userId: userId)
+            Task { await SyncService.shared.pushUpsert(table: "recurring_templates", recordId: template.id, dto: dto, modelContext: modelContext) }
+        }
+
         loadTemplates(modelContext: modelContext)
     }
 
+    @MainActor
     func deleteTemplate(_ template: RecurringTemplate, modelContext: ModelContext) {
+        let recordId = template.id
         modelContext.delete(template)
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            Task { await SyncService.shared.pushDelete(table: "recurring_templates", recordId: recordId, modelContext: modelContext) }
+        }
+
         loadTemplates(modelContext: modelContext)
     }
 
+    @MainActor
     func pauseTemplate(_ template: RecurringTemplate, modelContext: ModelContext) {
         template.isActive = false
         template.updatedAt = Date()
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            let dto = SyncMapper.toDTO(template, userId: userId)
+            Task { await SyncService.shared.pushUpsert(table: "recurring_templates", recordId: template.id, dto: dto, modelContext: modelContext) }
+        }
+
         loadTemplates(modelContext: modelContext)
     }
 
+    @MainActor
     func resumeTemplate(_ template: RecurringTemplate, modelContext: ModelContext) {
         template.isActive = true
         template.updatedAt = Date()
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            let dto = SyncMapper.toDTO(template, userId: userId)
+            Task { await SyncService.shared.pushUpsert(table: "recurring_templates", recordId: template.id, dto: dto, modelContext: modelContext) }
+        }
+
         loadTemplates(modelContext: modelContext)
     }
 
@@ -238,6 +266,12 @@ class RecurringViewModel {
         }
 
         try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            let dto = SyncMapper.toDTO(template, userId: userId)
+            Task { await SyncService.shared.pushUpsert(table: "recurring_templates", recordId: template.id, dto: dto, modelContext: modelContext) }
+        }
+
         loadTemplates(modelContext: modelContext)
     }
 }

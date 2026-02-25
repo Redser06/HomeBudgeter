@@ -72,6 +72,8 @@ final class BudgetCategory {
     var spentAmount: Decimal
     var period: BudgetPeriod
     var isActive: Bool
+    var createdAt: Date = Date()
+    var updatedAt: Date = Date()
 
     @Relationship(deleteRule: .cascade, inverse: \Transaction.category)
     var transactions: [Transaction]?
@@ -89,6 +91,8 @@ final class BudgetCategory {
         self.spentAmount = spentAmount
         self.period = period
         self.isActive = isActive
+        self.createdAt = Date()
+        self.updatedAt = Date()
     }
 
     var remainingAmount: Decimal {

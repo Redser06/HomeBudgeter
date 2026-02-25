@@ -124,6 +124,12 @@ class InvestmentViewModel {
 
         do {
             try modelContext.save()
+
+            if let userId = AuthManager.shared.currentUserId {
+                let dto = SyncMapper.toDTO(investment, userId: userId)
+                Task { await SyncService.shared.pushUpsert(table: "investments", recordId: investment.id, dto: dto, modelContext: modelContext) }
+            }
+
             loadInvestments(modelContext: modelContext)
         } catch {
             print("Error adding investment: \(error)")
@@ -132,10 +138,16 @@ class InvestmentViewModel {
 
     @MainActor
     func deleteInvestment(_ investment: Investment, modelContext: ModelContext) {
+        let recordId = investment.id
         modelContext.delete(investment)
 
         do {
             try modelContext.save()
+
+            if let userId = AuthManager.shared.currentUserId {
+                Task { await SyncService.shared.pushDelete(table: "investments", recordId: recordId, modelContext: modelContext) }
+            }
+
             loadInvestments(modelContext: modelContext)
         } catch {
             print("Error deleting investment: \(error)")
@@ -166,6 +178,12 @@ class InvestmentViewModel {
 
         do {
             try modelContext.save()
+
+            if let userId = AuthManager.shared.currentUserId {
+                let dto = SyncMapper.toDTO(tx, userId: userId)
+                Task { await SyncService.shared.pushUpsert(table: "investment_transactions", recordId: tx.id, dto: dto, modelContext: modelContext) }
+            }
+
             loadInvestments(modelContext: modelContext)
         } catch {
             print("Error adding investment transaction: \(error)")
@@ -183,6 +201,12 @@ class InvestmentViewModel {
 
         do {
             try modelContext.save()
+
+            if let userId = AuthManager.shared.currentUserId {
+                let dto = SyncMapper.toDTO(investment, userId: userId)
+                Task { await SyncService.shared.pushUpsert(table: "investments", recordId: investment.id, dto: dto, modelContext: modelContext) }
+            }
+
             loadInvestments(modelContext: modelContext)
         } catch {
             print("Error updating price: \(error)")
@@ -194,10 +218,16 @@ class InvestmentViewModel {
         _ transaction: InvestmentTransaction,
         modelContext: ModelContext
     ) {
+        let recordId = transaction.id
         modelContext.delete(transaction)
 
         do {
             try modelContext.save()
+
+            if let userId = AuthManager.shared.currentUserId {
+                Task { await SyncService.shared.pushDelete(table: "investment_transactions", recordId: recordId, modelContext: modelContext) }
+            }
+
             loadInvestments(modelContext: modelContext)
         } catch {
             print("Error deleting transaction: \(error)")

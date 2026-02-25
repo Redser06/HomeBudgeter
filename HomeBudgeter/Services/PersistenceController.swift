@@ -23,7 +23,8 @@ class PersistenceController: ObservableObject {
         BillLineItem.self,
         HouseholdMember.self,
         Investment.self,
-        InvestmentTransaction.self
+        InvestmentTransaction.self,
+        SyncQueueEntry.self
     ])
 
     let modelContainer: ModelContainer

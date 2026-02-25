@@ -18,6 +18,7 @@ final class InvestmentTransaction {
     var date: Date
     var notes: String?
     var createdAt: Date
+    var updatedAt: Date = Date()
 
     var investment: Investment?
 
@@ -37,6 +38,7 @@ final class InvestmentTransaction {
         self.date = date
         self.notes = notes
         self.createdAt = Date()
+        self.updatedAt = Date()
     }
 
     var totalAmount: Decimal {
