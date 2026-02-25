@@ -723,6 +723,7 @@ struct BillDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var showingDeleteConfirmation = false
+    @State private var selectedCategoryType: CategoryType?
 
     private var decodedParsedData: ParsedBillData? {
         guard let jsonString = bill.linkedDocument?.extractedData,
@@ -794,13 +795,18 @@ struct BillDetailSheet: View {
                                 }
                             }
                         }
-                        if let category = bill.category {
-                            HStack {
-                                Text("Budget Category")
-                                Spacer()
-                                Label(category.type.rawValue, systemImage: category.type.icon)
-                                    .font(.subheadline)
-                                    .foregroundColor(category.type.color)
+                        HStack {
+                            Text("Budget Category")
+                            Spacer()
+                            Picker("", selection: $selectedCategoryType) {
+                                Text("None").tag(nil as CategoryType?)
+                                ForEach(CategoryType.allCases, id: \.self) { cat in
+                                    Label(cat.rawValue, systemImage: cat.icon).tag(cat as CategoryType?)
+                                }
+                            }
+                            .frame(width: 180)
+                            .onChange(of: selectedCategoryType) { _, newValue in
+                                updateBillCategory(newValue)
                             }
                         }
                     }
@@ -1007,6 +1013,9 @@ struct BillDetailSheet: View {
         }
         .padding()
         .frame(minWidth: 520, maxWidth: 520, minHeight: 550, maxHeight: 700)
+        .onAppear {
+            selectedCategoryType = bill.category?.type
+        }
         .confirmationDialog("Delete Bill?", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 viewModel.deleteBill(bill, modelContext: modelContext)
@@ -1015,6 +1024,31 @@ struct BillDetailSheet: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This will permanently remove this bill and its linked document.")
+        }
+    }
+
+    private func updateBillCategory(_ type: CategoryType?) {
+        guard let type = type else {
+            bill.category = nil
+            bill.updatedAt = Date()
+            try? modelContext.save()
+            return
+        }
+        let descriptor = FetchDescriptor<BudgetCategory>()
+        let categories = (try? modelContext.fetch(descriptor)) ?? []
+        if let existing = categories.first(where: { $0.type == type }) {
+            bill.category = existing
+        } else {
+            let newCategory = BudgetCategory(type: type)
+            modelContext.insert(newCategory)
+            bill.category = newCategory
+        }
+        bill.updatedAt = Date()
+        try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            let dto = SyncMapper.toDTO(bill, userId: userId)
+            Task { await SyncService.shared.pushUpsert(table: "transactions", recordId: bill.id, dto: dto, modelContext: modelContext) }
         }
     }
 }

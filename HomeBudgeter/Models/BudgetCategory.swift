@@ -13,6 +13,8 @@ enum CategoryType: String, Codable, CaseIterable {
     case shopping = "Shopping"
     case personal = "Personal"
     case savings = "Savings"
+    case childcare = "Childcare"
+    case subscriptions = "Subscriptions"
     case other = "Other"
 
     var icon: String {
@@ -27,6 +29,8 @@ enum CategoryType: String, Codable, CaseIterable {
         case .shopping: return "bag.fill"
         case .personal: return "person.fill"
         case .savings: return "banknote.fill"
+        case .childcare: return "figure.and.child.holdinghands"
+        case .subscriptions: return "creditcard.and.123"
         case .other: return "ellipsis.circle.fill"
         }
     }
@@ -43,6 +47,8 @@ enum CategoryType: String, Codable, CaseIterable {
         case .shopping: return Color(red: 63/255, green: 81/255, blue: 181/255)       // #3F51B5 Indigo
         case .personal: return Color(red: 0/255, green: 188/255, blue: 212/255)       // #00BCD4 Cyan
         case .savings: return Color(red: 139/255, green: 195/255, blue: 74/255)       // #8BC34A Light Green
+        case .childcare: return Color(red: 255/255, green: 183/255, blue: 77/255)     // #FFB74D Amber
+        case .subscriptions: return Color(red: 171/255, green: 71/255, blue: 188/255) // #AB47BC Purple
         case .other: return Color(red: 96/255, green: 125/255, blue: 139/255)         // #607D8B Blue Gray
         }
     }
@@ -59,7 +65,9 @@ enum CategoryType: String, Codable, CaseIterable {
         case .shopping: return 7
         case .personal: return 8
         case .savings: return 9
-        case .other: return 10
+        case .childcare: return 10
+        case .subscriptions: return 11
+        case .other: return 12
         }
     }
 }

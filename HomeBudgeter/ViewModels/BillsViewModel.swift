@@ -361,14 +361,16 @@ class BillsViewModel {
         try? modelContext.save()
 
         if let userId = AuthManager.shared.currentUserId {
+            let txId = transaction.id
             let txDTO = SyncMapper.toDTO(transaction, userId: userId)
-            Task { await SyncService.shared.pushUpsert(table: "transactions", recordId: transaction.id, dto: txDTO, modelContext: modelContext) }
+            Task { await SyncService.shared.pushUpsert(table: "transactions", recordId: txId, dto: txDTO, modelContext: modelContext) }
             // Sync each BillLineItem
             let descriptor = FetchDescriptor<BillLineItem>()
             if let allLineItems = try? modelContext.fetch(descriptor) {
-                for item in allLineItems where item.transaction?.id == transaction.id {
+                for item in allLineItems where item.transaction?.id == txId {
+                    let itemId = item.id
                     let itemDTO = SyncMapper.toDTO(item, userId: userId)
-                    Task { await SyncService.shared.pushUpsert(table: "bill_line_items", recordId: item.id, dto: itemDTO, modelContext: modelContext) }
+                    Task { await SyncService.shared.pushUpsert(table: "bill_line_items", recordId: itemId, dto: itemDTO, modelContext: modelContext) }
                 }
             }
         }

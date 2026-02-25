@@ -300,6 +300,11 @@ struct AddTransactionSheet: View {
     @State private var selectedCategory: CategoryType = .other
     @State private var date = Date()
     @State private var note = ""
+    @State private var recurringFrequency: RecurringFrequency = .monthly
+
+    private var isSubscription: Bool {
+        selectedCategory == .subscriptions
+    }
 
     var body: some View {
         VStack(spacing: 20) {
@@ -321,6 +326,14 @@ struct AddTransactionSheet: View {
                 Picker("Category", selection: $selectedCategory) {
                     ForEach(CategoryType.allCases, id: \.self) { cat in
                         Label(cat.rawValue, systemImage: cat.icon).tag(cat)
+                    }
+                }
+
+                if isSubscription {
+                    Picker("Frequency", selection: $recurringFrequency) {
+                        ForEach(RecurringFrequency.allCases, id: \.self) { freq in
+                            Text(freq.rawValue).tag(freq)
+                        }
                     }
                 }
 
@@ -349,6 +362,11 @@ struct AddTransactionSheet: View {
                         category: category
                     )
                     viewModel.addTransaction(transaction, modelContext: modelContext)
+
+                    if isSubscription {
+                        createRecurringTemplate(category: category)
+                    }
+
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
@@ -356,7 +374,7 @@ struct AddTransactionSheet: View {
             }
         }
         .padding()
-        .frame(width: 400, height: 450)
+        .frame(width: 400, height: isSubscription ? 510 : 450)
     }
 
     private func findOrCreateCategory(_ type: CategoryType) -> BudgetCategory {
@@ -368,6 +386,24 @@ struct AddTransactionSheet: View {
         let newCategory = BudgetCategory(type: type)
         modelContext.insert(newCategory)
         return newCategory
+    }
+
+    private func createRecurringTemplate(category: BudgetCategory) {
+        let template = RecurringTemplate(
+            name: title,
+            amount: Decimal(amount),
+            type: isExpense ? .expense : .income,
+            frequency: recurringFrequency,
+            startDate: date,
+            category: category
+        )
+        modelContext.insert(template)
+        try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            let dto = SyncMapper.toDTO(template, userId: userId)
+            Task { await SyncService.shared.pushUpsert(table: "recurring_templates", recordId: template.id, dto: dto, modelContext: modelContext) }
+        }
     }
 }
 

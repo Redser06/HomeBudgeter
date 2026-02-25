@@ -245,10 +245,10 @@ final class DataFlowTests: XCTestCase {
 
     @MainActor
     func test_deleteBudget_removedFromDatabase() throws {
-        // First load which creates 11 default categories
+        // First load which creates 13 default categories
         let vm = BudgetViewModel()
         vm.loadCategories(modelContext: modelContext)
-        XCTAssertEqual(vm.categories.count, 11)
+        XCTAssertEqual(vm.categories.count, 13)
 
         // Delete one category
         guard let category = vm.categories.first else {

@@ -227,7 +227,7 @@ final class BudgetCategoryTests: XCTestCase {
     // MARK: - CategoryType Tests
 
     func test_categoryType_allCasesCount() {
-        XCTAssertEqual(CategoryType.allCases.count, 11)
+        XCTAssertEqual(CategoryType.allCases.count, 13)
     }
 
     func test_categoryType_allHaveNonEmptyIcons() {
@@ -247,7 +247,7 @@ final class BudgetCategoryTests: XCTestCase {
     }
 
     func test_categoryType_otherOrder_isLast() {
-        XCTAssertEqual(CategoryType.other.order, 10)
+        XCTAssertEqual(CategoryType.other.order, 12)
     }
 
     func test_categoryType_rawValues_areCorrect() {

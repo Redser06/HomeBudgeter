@@ -198,17 +198,38 @@ class DashboardViewModel {
     }
 
     private func loadCategorySpending(modelContext: ModelContext) {
-        var spendingByCategory: [String: Double] = [:]
+        let calendar = Calendar.current
+        let now = Date()
+        let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: now))!
+        let endOfMonth = calendar.date(byAdding: .month, value: 1, to: startOfMonth)!
 
-        for category in budgetCategories {
-            let amount = Double(truncating: category.spentAmount as NSNumber)
-            spendingByCategory[category.type.rawValue] = amount
+        let descriptor = FetchDescriptor<Transaction>(
+            predicate: #Predicate { transaction in
+                transaction.date >= startOfMonth && transaction.date < endOfMonth
+            }
+        )
+
+        do {
+            var transactions = try modelContext.fetch(descriptor)
+            if let member = selectedMember {
+                transactions = transactions.filter { $0.account?.owner?.id == member.id }
+            }
+            let expenses = transactions.filter { $0.type == .expense }
+
+            var spendingByCategory: [String: Double] = [:]
+            for transaction in expenses {
+                let categoryName = transaction.category?.type.rawValue ?? "Other"
+                let amount = Double(truncating: transaction.amount as NSNumber)
+                spendingByCategory[categoryName, default: 0] += amount
+            }
+
+            categorySpending = spendingByCategory
+                .filter { $0.value > 0 }
+                .map { CategorySpendingData(category: $0.key, amount: $0.value) }
+                .sorted { $0.amount > $1.amount }
+        } catch {
+            print("Error loading category spending: \(error)")
         }
-
-        categorySpending = spendingByCategory
-            .filter { $0.value > 0 }
-            .map { CategorySpendingData(category: $0.key, amount: $0.value) }
-            .sorted { $0.amount > $1.amount }
     }
 
     private func loadMonthlyTrend(modelContext: ModelContext) {

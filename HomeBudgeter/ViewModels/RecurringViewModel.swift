@@ -149,6 +149,42 @@ class RecurringViewModel {
         loadTemplates(modelContext: modelContext)
     }
 
+    @MainActor
+    func markAsPaid(_ template: RecurringTemplate, modelContext: ModelContext) {
+        let calendar = Calendar.current
+        var nextDate = template.nextDueDate
+
+        // Advance nextDueDate until it's in the future
+        while nextDate <= Date() {
+            switch template.frequency {
+            case .daily:
+                nextDate = calendar.date(byAdding: .day, value: 1, to: nextDate)!
+            case .weekly:
+                nextDate = calendar.date(byAdding: .weekOfYear, value: 1, to: nextDate)!
+            case .biweekly:
+                nextDate = calendar.date(byAdding: .weekOfYear, value: 2, to: nextDate)!
+            case .monthly:
+                nextDate = calendar.date(byAdding: .month, value: 1, to: nextDate)!
+            case .quarterly:
+                nextDate = calendar.date(byAdding: .month, value: 3, to: nextDate)!
+            case .yearly:
+                nextDate = calendar.date(byAdding: .year, value: 1, to: nextDate)!
+            }
+        }
+
+        template.nextDueDate = nextDate
+        template.lastProcessedDate = Date()
+        template.updatedAt = Date()
+        try? modelContext.save()
+
+        if let userId = AuthManager.shared.currentUserId {
+            let dto = SyncMapper.toDTO(template, userId: userId)
+            Task { await SyncService.shared.pushUpsert(table: "recurring_templates", recordId: template.id, dto: dto, modelContext: modelContext) }
+        }
+
+        loadTemplates(modelContext: modelContext)
+    }
+
     // MARK: - Price Tracking
 
     func updatePriceHistory(for template: RecurringTemplate, modelContext: ModelContext) {

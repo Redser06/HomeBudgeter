@@ -92,7 +92,9 @@ struct RecurringTransactionsView: View {
                         if !viewModel.overdueTemplates.isEmpty {
                             Section {
                                 ForEach(viewModel.overdueTemplates) { template in
-                                    RecurringTemplateRow(template: template, isOverdue: true) {
+                                    RecurringTemplateRow(template: template, isOverdue: true, onMarkPaid: {
+                                        viewModel.markAsPaid(template, modelContext: modelContext)
+                                    }) {
                                         viewModel.selectedTemplate = template
                                     }
                                 }
@@ -113,7 +115,9 @@ struct RecurringTransactionsView: View {
                         if !viewModel.activeTemplates.isEmpty {
                             Section {
                                 ForEach(viewModel.activeTemplates) { template in
-                                    RecurringTemplateRow(template: template) {
+                                    RecurringTemplateRow(template: template, onMarkPaid: {
+                                        viewModel.markAsPaid(template, modelContext: modelContext)
+                                    }) {
                                         viewModel.selectedTemplate = template
                                     }
                                 }
@@ -211,6 +215,7 @@ struct RecurringTemplateRow: View {
     let template: RecurringTemplate
     var isOverdue: Bool = false
     var isPaused: Bool = false
+    var onMarkPaid: (() -> Void)? = nil
     let onTap: () -> Void
 
     var body: some View {
@@ -290,6 +295,18 @@ struct RecurringTemplateRow: View {
                     Text(days < 0 ? "\(abs(days))d overdue" : (days == 0 ? "Due today" : "Due in \(days)d"))
                         .font(.caption)
                         .foregroundColor(days < 0 ? .red : (days <= 3 ? .orange : .secondary))
+                }
+
+                if let onMarkPaid, isOverdue || (template.isActive && template.daysUntilDue <= 0) {
+                    Button {
+                        onMarkPaid()
+                    } label: {
+                        Label("Mark Paid", systemImage: "checkmark.circle.fill")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.green)
+                    .controlSize(.small)
                 }
             }
 
@@ -572,6 +589,15 @@ struct EditRecurringSheet: View {
                 }
 
                 Spacer()
+
+                if template.isActive && template.daysUntilDue <= 0 {
+                    Button("Mark Paid") {
+                        viewModel.markAsPaid(template, modelContext: modelContext)
+                        dismiss()
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.green)
+                }
 
                 if template.isActive {
                     Button("Pause") {

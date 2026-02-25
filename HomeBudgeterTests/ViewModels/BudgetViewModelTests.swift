@@ -93,7 +93,7 @@ final class BudgetViewModelTests: XCTestCase {
         sut.loadCategories(modelContext: modelContext)
 
         // Then
-        XCTAssertEqual(sut.categories.count, 11) // All CategoryType cases
+        XCTAssertEqual(sut.categories.count, 13) // All CategoryType cases
     }
 
     @MainActor
